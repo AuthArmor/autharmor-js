@@ -39,7 +39,7 @@ You can easily generate invites to your app by doing the following:
 const SDK = new AuthArmorSDK("https://api.example.com/");
 
 // Generate a new invite
-const invite = await SDK.invite.generateInvite({
+const invite = await SDK.invite.generateInviteCode({
   nickname: "", // Specify the invite's nickname
   referenceId: "" // Specify a reference ID for the invite
 });
