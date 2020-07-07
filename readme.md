@@ -15,7 +15,7 @@ yarn add autharmor-jsclient-sdk
 You can also load the SDK via our CDN by placing this `script` tag in your app's `<head>`
 
 ```html
-<script src="https://cdn.autharmor.com/scripts/autharmor-jsclient-sdk.js"></script>
+<script src="https://cdn.autharmor.com/scripts/autharmor-sdk.js"></script>
 ```
 
 ## 🧭 Usage
