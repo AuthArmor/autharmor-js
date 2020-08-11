@@ -15,7 +15,7 @@ yarn add autharmor-jsclient-sdk
 You can also load the SDK via our CDN by placing this `script` tag in your app's `<head>`
 
 ```html
-<script src="https://cdn.autharmor.com/scripts/autharmor-jsclient-sdk.js"></script>
+<script src="https://cdn.autharmor.com/scripts/autharmor-sdk.js"></script>
 ```
 
 ## 🧭 Usage
@@ -39,7 +39,7 @@ You can easily generate invites to your app by doing the following:
 const SDK = new AuthArmorSDK("https://api.example.com/");
 
 // Generate a new invite
-const invite = await SDK.invite.generateInvite({
+const invite = await SDK.invite.generateInviteCode({
   nickname: "", // Specify the invite's nickname
   referenceId: "" // Specify a reference ID for the invite
 });
