@@ -48,7 +48,7 @@ console.log(invite);
 /**
  * Returns:
  * {
- *   "auth_profile_id": "string",
+ *   "nickname": "string",
  *   "invite_code": "string",
  *   "date_expires": "ISODate string",
  *   "invite_type": "string",
@@ -74,14 +74,14 @@ invite.useInviteLink();
 After generating an invite and having the user scan it, you'll need to confirm that the profile is fully setup in the user's device before sending authentication requests to his/her device.
 
 ```javascript
-console.log("Confirming invite ID:", invite.auth_profile_id);
-await SDK.invite.confirmInvite(invite.auth_profile_id);
+console.log("Confirming invite ID:", invite.nickname);
+await SDK.invite.confirmInvite(invite.nickname);
 console.log("Invite has been confirmed successfully!");
 ```
 
 #### What happens when confirming an invite?
 
-The SDK sends a request to your backend containing an ID of the profile (`auth_profile_id`) the user just imported to his/her phone. The backend then sends a test authentication message to the user's phone, if the user approved it, this means the profile was setup successfully. Otherwise, the user must have incorrectly setup the profile
+The SDK sends a request to your backend containing an ID of the profile (`nickname`) the user just imported to his/her phone. The backend then sends a test authentication message to the user's phone, if the user approved it, this means the profile was setup successfully. Otherwise, the user must have incorrectly setup the profile
 
 ## 🔏 Authentication
 
