@@ -1,6 +1,6 @@
 import Http from "axios";
 import kjua from "kjua";
-import config from "./config";
+import config from "./config/index.js";
 import images from "./assets/images.json";
 
 class AuthArmorSDK {
@@ -411,13 +411,13 @@ class AuthArmorSDK {
 
   // -- Authentication functionality
 
-  _authenticate = async username => {
+  _authenticate = async nickname => {
     try {
       this._showPopup();
       const { data } = await Http.post(
         `/auth/autharmor/auth`,
         {
-          username
+          nickname
         },
         { withCredentials: true }
       );

@@ -87,12 +87,12 @@ The SDK sends a request to your backend containing an ID of the profile (`nickna
 
 ### Initializing an authentication request
 
-In order to initialize a login request for authenticating users to your site, you can simply call the `authenticate()` function with the username you wish to request an authentication request for. Once you call the `authenticate()` function, an AuthArmor overlay will appear on top of your app which reacts accordingly to the authentication request's status.
+In order to initialize a login request for authenticating users to your site, you can simply call the `authenticate()` function with the nickname you wish to request an authentication request for. Once you call the `authenticate()` function, an AuthArmor overlay will appear on top of your app which reacts accordingly to the authentication request's status.
 
 ```javascript
 try {
   console.log("Authenticating user...");
-  await SDK.auth.authenticate("username");
+  await SDK.auth.authenticate("nickname");
   console.log("User authenticated!");
 } catch (err) {
   console.error("The request was declined or has timed out!", err);
