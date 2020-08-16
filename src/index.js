@@ -1,6 +1,6 @@
 import Http from "axios";
 import kjua from "kjua";
-import config from "./config/index.js";
+import config from "./config/index";
 import images from "./assets/images.json";
 
 class AuthArmorSDK {
@@ -320,16 +320,20 @@ class AuthArmorSDK {
 
       return {
         ...data,
-        getQRCode: () => {
+        getQRCode: ({
+          backgroundColor = "#202020",
+          fillColor = "#2db4b4",
+          borderRadius = 0
+        } = {}) => {
           const stringifiedInvite = JSON.stringify({
             type: "profile_invite",
             payload: data
           });
           const code = kjua({
             text: stringifiedInvite,
-            rounded: 0,
-            back: "#202020",
-            fill: "#2db4b4"
+            rounded: borderRadius,
+            back: backgroundColor,
+            fill: fillColor
           });
           return code.src;
         },
