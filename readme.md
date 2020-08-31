@@ -6,10 +6,10 @@ You can integrate the AuthArmor SDK into your website by installing and importin
 
 ```bash
 # Via NPM
-npm i -s autharmor-jsclient-sdk
+npm i -s autharmor-sdk
 
 # Via Yarn
-yarn add autharmor-jsclient-sdk
+yarn add autharmor-sdk
 ```
 
 You can also load the SDK via our CDN by placing this `script` tag in your app's `<head>`
