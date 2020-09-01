@@ -1,4 +1,4 @@
-import Http from "axios";
+import Axios from "axios";
 import kjua from "kjua";
 import config from "./config/index";
 import images from "./assets/images.json";
@@ -6,7 +6,7 @@ import images from "./assets/images.json";
 class AuthArmorSDK {
   constructor(url) {
     this.url = this._processUrl(url);
-    Http.defaults.baseURL = this.url;
+    Axios.defaults.baseURL = this.url;
 
     // Supported events
     this.events = [
@@ -309,7 +309,7 @@ class AuthArmorSDK {
         throw new Error("Please specify a nickname for the invite code");
       }
 
-      const { data } = await Http.post(
+      const { data } = await Axios.post(
         `/auth/autharmor/invite`,
         {
           nickname,
@@ -359,7 +359,7 @@ class AuthArmorSDK {
     try {
       this._executeEvent("authenticating");
       this._showPopup();
-      const { data } = await Http.post(
+      const { data } = await Axios.post(
         `/auth/autharmor/invite/confirm`,
         {
           nickname
@@ -404,7 +404,7 @@ class AuthArmorSDK {
 
   _logout = async () => {
     try {
-      const { data } = await Http.get(`/auth/autharmor/logout`, {
+      const { data } = await Axios.get(`/auth/autharmor/logout`, {
         withCredentials: true
       });
       return data;
@@ -418,7 +418,7 @@ class AuthArmorSDK {
   _authenticate = async nickname => {
     try {
       this._showPopup();
-      const { data } = await Http.post(
+      const { data } = await Axios.post(
         `/auth/autharmor/auth`,
         {
           nickname
@@ -451,7 +451,7 @@ class AuthArmorSDK {
   // Get if user is authenticated
   _getUser = async () => {
     try {
-      const { data } = await Http.get(`/auth/autharmor/me`, {
+      const { data } = await Axios.get(`/auth/autharmor/me`, {
         withCredentials: true
       });
       return data;
@@ -487,4 +487,4 @@ class AuthArmorSDK {
   }
 }
 
-module.exports = AuthArmorSDK;
+export default AuthArmorSDK;
