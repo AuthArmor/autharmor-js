@@ -276,17 +276,25 @@ class AuthArmorSDK {
     }
 
     return {
-      getQRCode: () => {
+      getQRCode: ({
+        backgroundColor = "#202020",
+        fillColor = "#2db4b4",
+        borderRadius = 0
+      } = {}) => {
         const stringifiedInvite = JSON.stringify({
-          invite_code: inviteCode,
-          aa_sig: signature
+          type: "profile_invite",
+          payload: {
+            invite_code: inviteCode,
+            aa_sig: signature
+          }
         });
-        return kjua({
+        const code = kjua({
           text: stringifiedInvite,
-          rounded: 10,
-          back: "#202020",
-          fill: "#2db4b4"
-        }).src;
+          rounded: borderRadius,
+          back: backgroundColor,
+          fill: fillColor
+        });
+        return code.src;
       },
       getInviteLink: () => {
         return `${config.inviteURL}/?i=${inviteCode}&aa_sig=${signature}`;
