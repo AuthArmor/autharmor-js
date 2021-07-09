@@ -1,6 +1,6 @@
 {
   "name": "autharmor-sdk",
-  "version": "1.4.4",
+  "version": "2.0.0-alpha.1",
   "main": "dist/index.js",
   "license": "MIT",
   "homepage": "https://github.com/AuthArmor/autharmor-jsclient-sdk#readme",
