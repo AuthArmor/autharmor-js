@@ -30,16 +30,46 @@ interface InviteData {
 }
 
 interface AuthRequest {
-  auth_request_id: string;
-  auth_profile_id: string;
-  visual_verify_value: string;
-  response_code: number;
-  response_message: string;
-  qr_code_data: string;
-  push_message_sent: boolean;
+  authRequest: {
+    auth_request_id: string;
+    auth_profile_id: string;
+    visual_verify_value: string;
+    response_code: number;
+    response_message: string;
+    qr_code_data: string;
+    push_message_sent: boolean;
+  };
+  requestToken: string;
 }
 
-type AuthCallback = (response: any) => any | Promise<any>;
+interface AuthenticateWebsocketSuccess {
+  data: {
+    response: any;
+    nickname: string;
+    token: string;
+    authorized: true;
+  };
+  /* Custom response received from auth server */
+  metadata: any;
+}
+
+interface AuthenticateWebsocketFail {
+  data: {
+    response: any;
+    nickname: string;
+    authorized: false;
+  };
+  /* Custom response received from auth server */
+  metadata: any;
+}
+
+interface AuthenticateArgs {
+  nickname: string;
+  send_push: boolean;
+  use_visual_verify: boolean;
+  onSuccess: (data: AuthenticateWebsocketSuccess) => any;
+  onFailure: (data: AuthenticateWebsocketFail) => any;
+}
 
 declare global {
   interface Window {
@@ -48,18 +78,14 @@ declare global {
 }
 
 class AuthArmorSDK {
-  url: string;
-  inviteCode: string = "";
-  signature: string = "";
-  events: Events[];
-  eventListeners: Map<Events, EventListener[]>;
-  socket: WebSocket | undefined;
-  requestCompleted: boolean = false;
-  onAuthSuccess: AuthCallback = () => {};
-  onAuthFailed: AuthCallback = () => {};
+  private url: string;
+  private events: Events[];
+  private eventListeners: Map<Events, EventListener[]>;
+  private socket: WebSocket | undefined;
+  private requestCompleted: boolean = false;
 
-  constructor({ url = "", polling = false }) {
-    this.url = this.processUrl(url);
+  constructor({ url = "", pathPrefix = "/auth/autharmor", polling = false }) {
+    this.url = this.processUrl(url) + this.processUrl(pathPrefix);
     Axios.defaults.baseURL = this.url;
 
     // Supported events
@@ -179,7 +205,7 @@ class AuthArmorSDK {
     }, delay);
   };
 
-  private updateMessage = (message: string, status = "success") => {
+  private updateMessage = (message: string, status: string = "success") => {
     const authMessage = document.querySelector(".auth-message");
     if (authMessage) {
       authMessage.classList.add(`autharmor--${status}`);
@@ -269,7 +295,9 @@ class AuthArmorSDK {
     `;
 
     if (!polling) {
-      this.socket = new WebSocket(this.url);
+      this.socket = new WebSocket(
+        (this.url + "/socket").replace(/^http/gi, "ws")
+      );
     }
 
     window.AuthArmor.openedWindow = () => {
@@ -343,14 +371,6 @@ class AuthArmorSDK {
   private setInviteData = ({ inviteCode, signature }: InviteData) => {
     if (!inviteCode || !signature) {
       throw new Error("Please specify an invite code and a signature");
-    }
-
-    if (inviteCode !== undefined) {
-      this.inviteCode = inviteCode;
-    }
-
-    if (signature !== undefined) {
-      this.signature = signature;
     }
 
     return {
@@ -504,13 +524,21 @@ class AuthArmorSDK {
 
   // -- Authentication functionality
 
-  private authenticate = async (nickname: string) => {
+  private authenticate = async ({
+    nickname,
+    send_push = true,
+    use_visual_verify = false,
+    onSuccess,
+    onFailure
+  }: AuthenticateArgs) => {
     try {
       this.showPopup();
       const { data }: AxiosResponse<AuthRequest> = await Axios.post(
-        `/auth/autharmor/auth`,
+        `/auth/autharmor/authenticate`,
         {
-          nickname
+          nickname,
+          send_push,
+          use_visual_verify
         },
         { withCredentials: true }
       );
@@ -520,7 +548,8 @@ class AuthArmorSDK {
           JSON.stringify({
             event: "subscribe:auth",
             data: {
-              id: data.auth_request_id
+              id: data.authRequest.auth_request_id,
+              requestToken: data.requestToken
             }
           })
         );
@@ -529,22 +558,31 @@ class AuthArmorSDK {
           try {
             const parsedData = JSON.parse(event.data);
             if (parsedData.event === "auth:response") {
-              if (parsedData.data.response_message === "Success") {
+              if (parsedData.data.response?.response_message === "Success") {
                 this.updateMessage(
                   "Authentication request approved!",
                   "success"
                 );
-                this.onAuthSuccess(parsedData.data);
+                onSuccess?.({
+                  data: parsedData.data,
+                  metadata: parsedData.metadata
+                });
               }
 
-              if (parsedData.data.response_message === "Timeout") {
+              if (parsedData.data.response?.response_message === "Timeout") {
                 this.updateMessage("Authentication request timed out", "warn");
-                this.onAuthFailed(parsedData.data);
+                onFailure?.({
+                  data: parsedData.data,
+                  metadata: parsedData.metadata
+                });
               }
 
-              if (parsedData.data.response_message === "Declined") {
+              if (parsedData.data.response?.response_message === "Declined") {
                 this.updateMessage("Authentication request declined", "danger");
-                this.onAuthFailed(parsedData.data);
+                onFailure?.({
+                  data: parsedData.data,
+                  metadata: parsedData.metadata
+                });
               }
 
               this.hidePopup();
