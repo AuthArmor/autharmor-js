@@ -63,12 +63,8 @@ var images_json_1 = __importDefault(require("./assets/images.json"));
 var AuthArmorSDK = /** @class */ (function () {
     function AuthArmorSDK(_a) {
         var _this = this;
-        var _b = _a.url, url = _b === void 0 ? "" : _b, _c = _a.polling, polling = _c === void 0 ? false : _c;
-        this.inviteCode = "";
-        this.signature = "";
+        var _b = _a.url, url = _b === void 0 ? "" : _b, _c = _a.pathPrefix, pathPrefix = _c === void 0 ? "/auth/autharmor" : _c, _d = _a.polling, polling = _d === void 0 ? false : _d;
         this.requestCompleted = false;
-        this.onAuthSuccess = function () { };
-        this.onAuthFailed = function () { };
         // Private Methods
         this.processUrl = function (url) {
             if (url === void 0) { url = ""; }
@@ -147,12 +143,6 @@ var AuthArmorSDK = /** @class */ (function () {
             var inviteCode = _a.inviteCode, signature = _a.signature;
             if (!inviteCode || !signature) {
                 throw new Error("Please specify an invite code and a signature");
-            }
-            if (inviteCode !== undefined) {
-                _this.inviteCode = inviteCode;
-            }
-            if (signature !== undefined) {
-                _this.signature = signature;
             }
             return {
                 getQRCode: function (_a) {
@@ -293,61 +283,77 @@ var AuthArmorSDK = /** @class */ (function () {
             });
         }); };
         // -- Authentication functionality
-        this.authenticate = function (nickname) { return __awaiter(_this, void 0, void 0, function () {
-            var data, err_4;
-            var _this = this;
-            var _a;
-            return __generator(this, function (_b) {
-                switch (_b.label) {
-                    case 0:
-                        _b.trys.push([0, 2, , 3]);
-                        this.showPopup();
-                        return [4 /*yield*/, axios_1.default.post("/auth/autharmor/auth", {
-                                nickname: nickname
-                            }, { withCredentials: true })];
-                    case 1:
-                        data = (_b.sent()).data;
-                        if (this.socket) {
-                            this.socket.send(JSON.stringify({
-                                event: "subscribe:auth",
-                                data: {
-                                    id: data.auth_request_id
-                                }
-                            }));
-                            this.socket.onmessage = function (event) {
-                                try {
-                                    var parsedData = JSON.parse(event.data);
-                                    if (parsedData.event === "auth:response") {
-                                        if (parsedData.data.response_message === "Success") {
-                                            _this.updateMessage("Authentication request approved!", "success");
-                                            _this.onAuthSuccess(parsedData.data);
-                                        }
-                                        if (parsedData.data.response_message === "Timeout") {
-                                            _this.updateMessage("Authentication request timed out", "warn");
-                                            _this.onAuthFailed(parsedData.data);
-                                        }
-                                        if (parsedData.data.response_message === "Declined") {
-                                            _this.updateMessage("Authentication request declined", "danger");
-                                            _this.onAuthFailed(parsedData.data);
-                                        }
-                                        _this.hidePopup();
+        this.authenticate = function (_a) {
+            var nickname = _a.nickname, _b = _a.send_push, send_push = _b === void 0 ? true : _b, _c = _a.use_visual_verify, use_visual_verify = _c === void 0 ? false : _c, onSuccess = _a.onSuccess, onFailure = _a.onFailure;
+            return __awaiter(_this, void 0, void 0, function () {
+                var data, err_4;
+                var _this = this;
+                var _d;
+                return __generator(this, function (_e) {
+                    switch (_e.label) {
+                        case 0:
+                            _e.trys.push([0, 2, , 3]);
+                            this.showPopup();
+                            return [4 /*yield*/, axios_1.default.post("/auth/autharmor/authenticate", {
+                                    nickname: nickname,
+                                    send_push: send_push,
+                                    use_visual_verify: use_visual_verify
+                                }, { withCredentials: true })];
+                        case 1:
+                            data = (_e.sent()).data;
+                            if (this.socket) {
+                                this.socket.send(JSON.stringify({
+                                    event: "subscribe:auth",
+                                    data: {
+                                        id: data.authRequest.auth_request_id,
+                                        requestToken: data.requestToken
                                     }
-                                }
-                                catch (err) {
-                                    console.error(err);
-                                }
-                            };
-                        }
-                        return [2 /*return*/, data];
-                    case 2:
-                        err_4 = _b.sent();
-                        console.error(err_4);
-                        this.hidePopup();
-                        throw (_a = err_4 === null || err_4 === void 0 ? void 0 : err_4.response) === null || _a === void 0 ? void 0 : _a.data;
-                    case 3: return [2 /*return*/];
-                }
+                                }));
+                                this.socket.onmessage = function (event) {
+                                    var _a, _b, _c;
+                                    try {
+                                        var parsedData = JSON.parse(event.data);
+                                        if (parsedData.event === "auth:response") {
+                                            if (((_a = parsedData.data.response) === null || _a === void 0 ? void 0 : _a.response_message) === "Success") {
+                                                _this.updateMessage("Authentication request approved!", "success");
+                                                onSuccess === null || onSuccess === void 0 ? void 0 : onSuccess({
+                                                    data: parsedData.data,
+                                                    metadata: parsedData.metadata
+                                                });
+                                            }
+                                            if (((_b = parsedData.data.response) === null || _b === void 0 ? void 0 : _b.response_message) === "Timeout") {
+                                                _this.updateMessage("Authentication request timed out", "warn");
+                                                onFailure === null || onFailure === void 0 ? void 0 : onFailure({
+                                                    data: parsedData.data,
+                                                    metadata: parsedData.metadata
+                                                });
+                                            }
+                                            if (((_c = parsedData.data.response) === null || _c === void 0 ? void 0 : _c.response_message) === "Declined") {
+                                                _this.updateMessage("Authentication request declined", "danger");
+                                                onFailure === null || onFailure === void 0 ? void 0 : onFailure({
+                                                    data: parsedData.data,
+                                                    metadata: parsedData.metadata
+                                                });
+                                            }
+                                            _this.hidePopup();
+                                        }
+                                    }
+                                    catch (err) {
+                                        console.error(err);
+                                    }
+                                };
+                            }
+                            return [2 /*return*/, data];
+                        case 2:
+                            err_4 = _e.sent();
+                            console.error(err_4);
+                            this.hidePopup();
+                            throw (_d = err_4 === null || err_4 === void 0 ? void 0 : err_4.response) === null || _d === void 0 ? void 0 : _d.data;
+                        case 3: return [2 /*return*/];
+                    }
+                });
             });
-        }); };
+        };
         // Get if user is authenticated
         this.getUser = function () { return __awaiter(_this, void 0, void 0, function () {
             var data, err_5;
@@ -369,7 +375,7 @@ var AuthArmorSDK = /** @class */ (function () {
                 }
             });
         }); };
-        this.url = this.processUrl(url);
+        this.url = this.processUrl(url) + this.processUrl(pathPrefix);
         axios_1.default.defaults.baseURL = this.url;
         // Supported events
         this.events = [
@@ -400,7 +406,7 @@ var AuthArmorSDK = /** @class */ (function () {
         var _b = _a.polling, polling = _b === void 0 ? false : _b;
         document.body.innerHTML += "\n      <style>\n        .autharmor--danger {\n          background-color: #f55050 !important;\n        }\n\n        .autharmor--warn {\n          background-color: #ff8d18 !important;\n        }\n\n        .popup-overlay {\n          position: fixed;\n          top: 0;\n          left: 0;\n          width: 100%;\n          height: 100%;\n          display: flex;\n          flex-direction: column;\n          justify-content: center;\n          align-items: center;\n          background-color: rgba(53, 57, 64, 0.98);\n          z-index: 100;\n          opacity: 1;\n          visibility: visible;\n          transition: all .2s ease;\n        }\n        \n        .popup-overlay-content {\n          display: flex;\n          flex-direction: column;\n          justify-content: center;\n          align-items: center;\n          border-radius: 15px;\n          overflow: hidden;\n          box-shadow: 0px 20px 50px rgba(0, 0, 0, 0.15);\n          background-color: #2b313c;\n          width: 90%;\n          max-width: 480px;\n          min-width: 300px;\n        }\n        \n        .popup-overlay img {\n          height: 110px;\n          margin-bottom: 40px;\n          margin-top: 40px;\n        }\n        \n        .popup-overlay p {\n          margin: 0;\n          font-weight: bold;\n          color: white;\n          font-size: 18px;\n          padding: 14px 80px;\n          background-color: rgb(0, 128, 128);\n          width: 100%;\n          text-align: center;\n          font-family: 'Montserrat', 'Helvetica Neue', 'Roboto', 'Arial', sans-serif;\n          transition: all .2s ease;\n        }\n\n        .hidden {\n          opacity: 0;\n          visibility: hidden;\n        }\n      </style>\n      <div class=\"popup-overlay hidden\">\n        <div class=\"popup-overlay-content\">\n          <img src=\"" + images_json_1.default.logo + "\" alt=\"AuthArmor Icon\" />\n          <p class=\"auth-message\">Authenticating with AuthArmor...</p>\n        </div>\n      </div>\n    ";
         if (!polling) {
-            this.socket = new WebSocket(this.url);
+            this.socket = new WebSocket((this.url + "/socket").replace(/^http/gi, "ws"));
         }
         window.AuthArmor.openedWindow = function () {
             _this.executeEvent("inviteWindowOpened");
