@@ -184,7 +184,7 @@ var AuthArmorSDK = /** @class */ (function () {
                             if (!nickname) {
                                 throw new Error("Please specify a nickname for the invite code");
                             }
-                            return [4 /*yield*/, axios_1.default.post("/auth/autharmor/invite", {
+                            return [4 /*yield*/, axios_1.default.post("/invite", {
                                     nickname: nickname,
                                     referenceId: referenceId
                                 }, { withCredentials: true })];
@@ -226,7 +226,7 @@ var AuthArmorSDK = /** @class */ (function () {
                         _f.trys.push([0, 2, , 3]);
                         this.executeEvent("authenticating");
                         this.showPopup();
-                        return [4 /*yield*/, axios_1.default.post("/auth/autharmor/invite/confirm", {
+                        return [4 /*yield*/, axios_1.default.post("/invite/confirm", {
                                 nickname: nickname
                             }, { withCredentials: true })];
                     case 1:
@@ -269,7 +269,7 @@ var AuthArmorSDK = /** @class */ (function () {
                 switch (_b.label) {
                     case 0:
                         _b.trys.push([0, 2, , 3]);
-                        return [4 /*yield*/, axios_1.default.get("/auth/autharmor/logout", {
+                        return [4 /*yield*/, axios_1.default.get("/logout", {
                                 withCredentials: true
                             })];
                     case 1:
@@ -294,7 +294,7 @@ var AuthArmorSDK = /** @class */ (function () {
                         case 0:
                             _e.trys.push([0, 2, , 3]);
                             this.showPopup();
-                            return [4 /*yield*/, axios_1.default.post("/auth/autharmor/authenticate", {
+                            return [4 /*yield*/, axios_1.default.post("/authenticate", {
                                     nickname: nickname,
                                     send_push: send_push,
                                     use_visual_verify: use_visual_verify
@@ -362,7 +362,7 @@ var AuthArmorSDK = /** @class */ (function () {
                 switch (_b.label) {
                     case 0:
                         _b.trys.push([0, 2, , 3]);
-                        return [4 /*yield*/, axios_1.default.get("/auth/autharmor/me", {
+                        return [4 /*yield*/, axios_1.default.get("/me", {
                                 withCredentials: true
                             })];
                     case 1:
