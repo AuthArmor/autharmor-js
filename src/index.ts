@@ -419,7 +419,7 @@ class AuthArmorSDK {
       }
 
       const { data } = await Axios.post(
-        `/auth/autharmor/invite`,
+        `/invite`,
         {
           nickname,
           referenceId
@@ -469,7 +469,7 @@ class AuthArmorSDK {
       this.executeEvent("authenticating");
       this.showPopup();
       const { data } = await Axios.post(
-        `/auth/autharmor/invite/confirm`,
+        `/invite/confirm`,
         {
           nickname
         },
@@ -513,7 +513,7 @@ class AuthArmorSDK {
 
   private logout = async () => {
     try {
-      const { data } = await Axios.get(`/auth/autharmor/logout`, {
+      const { data } = await Axios.get(`/logout`, {
         withCredentials: true
       });
       return data;
@@ -534,7 +534,7 @@ class AuthArmorSDK {
     try {
       this.showPopup();
       const { data }: AxiosResponse<AuthRequest> = await Axios.post(
-        `/auth/autharmor/authenticate`,
+        `/authenticate`,
         {
           nickname,
           send_push,
@@ -558,7 +558,7 @@ class AuthArmorSDK {
           try {
             const parsedData = JSON.parse(event.data);
             if (parsedData.event === "auth:response") {
-              if (parsedData.data.response?.response_message === "Success") {
+              if (parsedData.data.response?.auth_response.response_message === "Success") {
                 this.updateMessage(
                   "Authentication request approved!",
                   "success"
@@ -569,7 +569,7 @@ class AuthArmorSDK {
                 });
               }
 
-              if (parsedData.data.response?.response_message === "Timeout") {
+              if (parsedData.data.response?.auth_response.response_message === "Timeout") {
                 this.updateMessage("Authentication request timed out", "warn");
                 onFailure?.({
                   data: parsedData.data,
@@ -577,7 +577,7 @@ class AuthArmorSDK {
                 });
               }
 
-              if (parsedData.data.response?.response_message === "Declined") {
+              if (parsedData.data.response?.auth_response.response_message === "Declined") {
                 this.updateMessage("Authentication request declined", "danger");
                 onFailure?.({
                   data: parsedData.data,
@@ -604,7 +604,7 @@ class AuthArmorSDK {
   // Get if user is authenticated
   private getUser = async () => {
     try {
-      const { data } = await Axios.get(`/auth/autharmor/me`, {
+      const { data } = await Axios.get(`/me`, {
         withCredentials: true
       });
       return data;
