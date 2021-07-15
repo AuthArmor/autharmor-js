@@ -1,6 +1,6 @@
 {
   "name": "autharmor-sdk",
-  "version": "2.0.0-alpha.11",
+  "version": "2.0.0-alpha.12",
   "main": "build/index.js",
   "license": "MIT",
   "homepage": "https://github.com/AuthArmor/autharmor-jsclient-sdk#readme",
@@ -13,8 +13,9 @@
   ],
   "scripts": {
     "build": "webpack --progress",
+    "build:browser": "webpack --progress --config ./webpack.config.browser.js",
     "build:watch": "webpack -w",
-    "build:publish": "yarn build && yarn publish"
+    "build:publish": "yarn build && yarn build:browser && yarn publish"
   },
   "devDependencies": {
     "@babel/core": "^7.0.0-0",
