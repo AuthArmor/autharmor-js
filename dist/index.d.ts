@@ -39,17 +39,24 @@ interface AuthenticateWebsocketFail {
 }
 interface AuthenticateArgs {
     nickname: string;
-    send_push: boolean;
-    use_visual_verify: boolean;
+    sendPush: boolean;
+    visualVerify: boolean;
+    showPopup: boolean;
+    qrCodeStyle: {
+        borderRadius: number;
+        background: string;
+        foreground: string;
+    };
     onSuccess: (data: AuthenticateWebsocketSuccess) => any;
     onFailure: (data: AuthenticateWebsocketFail) => any;
 }
 declare global {
     interface Window {
+        AuthArmorSDK: any;
         AuthArmor: any;
     }
 }
-declare class AuthArmorSDK {
+declare class SDK {
     private url;
     private events;
     private eventListeners;
@@ -90,14 +97,14 @@ declare class AuthArmorSDK {
         confirmInvite: (nickname: string) => Promise<any>;
     };
     get auth(): {
-        authenticate: ({ nickname, send_push, use_visual_verify, onSuccess, onFailure }: AuthenticateArgs) => Promise<AuthRequest>;
+        authenticate: ({ nickname, sendPush, visualVerify, showPopup, qrCodeStyle, onSuccess, onFailure }: AuthenticateArgs) => Promise<AuthRequest>;
         getUser: () => Promise<any>;
         logout: () => Promise<any>;
     };
     get popup(): {
-        show: (message?: string) => void;
+        show: (message?: string, hideQRBtn?: boolean | undefined) => void;
         hide: (delay?: number) => void;
         updateMessage: (message: string, status?: string) => void;
     };
 }
-export default AuthArmorSDK;
+export default SDK;

@@ -2,7 +2,9 @@ import Axios, { AxiosResponse } from "axios";
 // @ts-ignore
 import kjua from "kjua";
 import config from "./config/index";
-import images from "./assets/images.json";
+import qrCode from "./assets/qr-code.svg";
+import logo from "./assets/logo.png";
+import closeIcon from "./assets/cancel.svg";
 
 type Events =
   | "authenticating"
@@ -65,19 +67,28 @@ interface AuthenticateWebsocketFail {
 
 interface AuthenticateArgs {
   nickname: string;
-  send_push: boolean;
-  use_visual_verify: boolean;
+  sendPush: boolean;
+  visualVerify: boolean;
+  showPopup: boolean;
+  qrCodeStyle: {
+    borderRadius: number;
+    background: string;
+    foreground: string;
+  };
   onSuccess: (data: AuthenticateWebsocketSuccess) => any;
   onFailure: (data: AuthenticateWebsocketFail) => any;
 }
 
 declare global {
   interface Window {
+    AuthArmorSDK: any;
     AuthArmor: any;
   }
 }
 
-class AuthArmorSDK {
+const $ = (selectors: string) => document.querySelector(selectors);
+
+class SDK {
   private url: string;
   private events: Events[];
   private eventListeners: Map<Events, EventListener[]>;
@@ -171,9 +182,21 @@ class AuthArmorSDK {
     }, 500);
   };
 
-  private showPopup = (message = "Waiting for device") => {
+  private showPopup = (message = "Waiting for device", hideQRBtn?: boolean) => {
     const popupOverlay = document.querySelector(".popup-overlay");
     const authMessage = document.querySelector(".auth-message");
+    const showQRCodeBtn = document.querySelector(".show-popup-qrcode-btn");
+    const hideQRCodeBtn = document.querySelector(".hide-popup-qrcode-btn");
+
+    if (hideQRBtn) {
+      showQRCodeBtn?.classList.add("hidden");
+      hideQRCodeBtn?.classList.add("hidden");
+    }
+
+    if (!hideQRBtn) {
+      showQRCodeBtn?.classList.remove("hidden");
+      hideQRCodeBtn?.classList.add("hidden");
+    }
 
     if (popupOverlay) {
       popupOverlay.classList.remove("hidden");
@@ -247,6 +270,33 @@ class AuthArmorSDK {
           visibility: visible;
           transition: all .2s ease;
         }
+
+        .popup-overlay * {
+          box-sizing: border-box;
+        }
+
+        .close-popup-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: absolute;
+          top: -15px;
+          right: -15px;
+          width: 35px;
+          height: 35px;
+          border-radius: 100px;
+          background-color: #545d6d;
+          /* transform: translate(-50%, -50%); */
+          cursor: pointer;
+        }
+
+        .close-popup-btn img {
+          width: 15px;
+        }
+
+        .close-popup-btn:hover {
+          background-color: #d23b3b;
+        }
         
         .popup-overlay-content {
           display: flex;
@@ -254,27 +304,103 @@ class AuthArmorSDK {
           justify-content: center;
           align-items: center;
           border-radius: 15px;
-          overflow: hidden;
           box-shadow: 0px 20px 50px rgba(0, 0, 0, 0.15);
           background-color: #2b313c;
           width: 90%;
           max-width: 480px;
           min-width: 300px;
         }
-        
-        .popup-overlay img {
-          height: 110px;
-          margin-bottom: 40px;
-          margin-top: 40px;
+
+        .show-popup-qrcode-btn, .hide-popup-qrcode-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: absolute;
+          right: 20px;
+          top: 15px;
+          padding: 6px 10px;
+          border-radius: 100px;
+          background-color: transparent;
+          cursor: pointer;
+          transition: all .2s ease;
+        }
+
+        .show-popup-qrcode-btn:hover, .hide-popup-qrcode-btn:hover {
+          background-color: rgba(255,255,255,0.1);
+        }
+
+        .show-popup-qrcode-btn img, .hide-popup-qrcode-btn img {
+          margin-right: 6px;
+          height: 20px;
+        }
+
+        .popup-qrcode-btn-text {
+          margin: 0;
+          font-size: 12px;
+          font-family: 'Montserrat', 'Helvetica Neue', 'Roboto', 'Arial', sans-serif;
+          color: white;
+          opacity: 0.8;
+          font-weight: bold;
+        }
+
+        .popup-content-container {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          width: 100%;
+          height: 100%;
+        }
+
+        .qr-code-img-container {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: scale(1) translate(-50%, -50%);
+          transform-origin: top left;
+          pointer-events: none;
+          transition: all .3s ease;
+        }
+
+        img.qr-code-img {
+          height: 130px;
+          margin-bottom: 10px;
+        }
+
+        .qr-code-img-desc {
+          font-size: 12px;
+          font-family: 'Montserrat', 'Helvetica Neue', 'Roboto', 'Arial', sans-serif;
+          font-weight: bold;
+          margin: 0;
+          color: white;
+          opacity: 0.8;
+          margin-bottom: -10px;
+          text-align: center;
         }
         
-        .popup-overlay p {
+        .popup-overlay .autharmor-icon {
+          position: relative;
+          height: 130px;
+          margin-bottom: 40px;
+          margin-top: 40px;
+          pointer-events: none;
+          transition: all .3s ease;
+          z-index: 2;
+        }
+        
+        .popup-overlay .auth-message {
           margin: 0;
           font-weight: bold;
           color: white;
           font-size: 18px;
           padding: 14px 80px;
-          background-color: rgb(0, 128, 128);
+          background-color: #2cb2b5;
+          border-radius: 0 0 15px 15px;
           width: 100%;
           text-align: center;
           font-family: 'Montserrat', 'Helvetica Neue', 'Roboto', 'Arial', sans-serif;
@@ -284,15 +410,83 @@ class AuthArmorSDK {
         .hidden {
           opacity: 0;
           visibility: hidden;
+          pointer-events: none;
+        }
+
+        .qr-code-img-container.hidden {
+          transform: scale(0) translate(-50%, -50%);
+          opacity: 0;
+          visibility: hidden;
+        }
+
+        .autharmor-icon.hidden {
+          transform: scale(0.3) translateY(-28px);
+          /* filter: grayscale(1); */
+          opacity: 1;
+          visibility: visible;
         }
       </style>
       <div class="popup-overlay hidden">
         <div class="popup-overlay-content">
-          <img src="${images.logo}" alt="AuthArmor Icon" />
+          <div class="popup-content-container">
+            <div class="close-popup-btn">
+              <img src="${closeIcon}" alt="Close Popup Button" />
+            </div>
+            <div class="show-popup-qrcode-btn">
+              <img src="${qrCode}" alt="QR Code Button" />
+              <p class="popup-qrcode-btn-text">Show QR Code</p>
+            </div>
+            <div class="hide-popup-qrcode-btn hidden">
+              <img src="${qrCode}" alt="QR Code Button" />
+              <p class="popup-qrcode-btn-text">Hide QR Code</p>
+            </div>
+            <img src="${logo}" alt="AuthArmor Icon" class="autharmor-icon" />
+            <div class="qr-code-img-container hidden">
+              <img src="" alt="QR Code" class="qr-code-img" />
+              <p class="qr-code-img-desc">Please scan the code with the AuthArmor app</p>
+            </div>
+          </div>
           <p class="auth-message">Authenticating with AuthArmor...</p>
         </div>
       </div>
     `;
+
+    const popup = $(".popup-overlay");
+    const showPopupBtn = $(".show-popup-qrcode-btn");
+    const hidePopupBtn = $(".hide-popup-qrcode-btn");
+    const qrCodeContainer = $(".qr-code-img-container");
+    const autharmorIcon = $(".autharmor-icon");
+    const closePopupBtn = $(".close-popup-btn");
+    let timer: NodeJS.Timeout;
+
+    showPopupBtn?.addEventListener("click", () => {
+      clearTimeout(timer);
+      showPopupBtn?.classList.add("hidden");
+      autharmorIcon?.classList.add("hidden");
+      timer = setTimeout(() => {
+        qrCodeContainer?.classList.remove("hidden");
+        hidePopupBtn?.classList.remove("hidden");
+      }, 200);
+    });
+
+    hidePopupBtn?.addEventListener("click", () => {
+      clearTimeout(timer);
+      hidePopupBtn?.classList.add("hidden");
+      qrCodeContainer?.classList.add("hidden");
+      timer = setTimeout(() => {
+        autharmorIcon?.classList.remove("hidden");
+        showPopupBtn?.classList.remove("hidden");
+      }, 200);
+    });
+
+    closePopupBtn?.addEventListener("click", () => {
+      clearTimeout(timer);
+      popup?.classList.add("hidden");
+      hidePopupBtn?.classList.add("hidden");
+      qrCodeContainer?.classList.add("hidden");
+      autharmorIcon?.classList.remove("hidden");
+      showPopupBtn?.classList.remove("hidden");
+    });
 
     if (!polling) {
       this.socket = new WebSocket(
@@ -376,7 +570,7 @@ class AuthArmorSDK {
     return {
       getQRCode: ({
         backgroundColor = "#202020",
-        fillColor = "#2db4b4",
+        fillColor = "#2cb2b5",
         borderRadius = 0
       } = {}) => {
         const stringifiedInvite = JSON.stringify({
@@ -431,13 +625,13 @@ class AuthArmorSDK {
         ...data,
         getQRCode: ({
           backgroundColor = "#202020",
-          fillColor = "#2db4b4",
+          fillColor = "#2cb2b5",
           borderRadius = 0
         } = {}) => {
-          const stringifiedInvite = JSON.stringify({
-            type: "profile_invite",
-            payload: data
-          });
+          const stringifiedInvite = data.data.qr_code_data.replace(
+            "autharmor.com",
+            "autharmor.dev"
+          );
           const code = kjua({
             text: stringifiedInvite,
             rounded: borderRadius,
@@ -450,7 +644,7 @@ class AuthArmorSDK {
           return `${config.inviteURL}/?i=${data.invite_code}&aa_sig=${data.aa_sig}`;
         },
         openInviteLink: () => {
-          this.showPopup();
+          this.showPopup(undefined, true);
           this.popupWindow(
             `${config.inviteURL}/?i=${data.invite_code}&aa_sig=${data.aa_sig}`,
             "Link your account with AuthArmor",
@@ -526,21 +720,40 @@ class AuthArmorSDK {
 
   private authenticate = async ({
     nickname,
-    send_push = true,
-    use_visual_verify = false,
+    sendPush = true,
+    visualVerify = false,
+    showPopup = true,
+    qrCodeStyle = {
+      borderRadius: 10,
+      background: "#202020",
+      foreground: "#2cb2b5"
+    },
     onSuccess,
     onFailure
   }: AuthenticateArgs) => {
     try {
-      this.showPopup();
       const { data }: AxiosResponse<AuthRequest> = await Axios.post(
         `/authenticate`,
         {
           nickname,
-          send_push,
-          use_visual_verify
+          send_push: sendPush && nickname?.length > 0,
+          use_visual_verify: visualVerify
         },
         { withCredentials: true }
+      );
+      if (showPopup === true || (sendPush && showPopup !== false)) {
+        this.showPopup();
+      }
+
+      const qrCodeImage = $(".qr-code-img");
+      qrCodeImage?.setAttribute(
+        "src",
+        kjua({
+          text: data.authRequest.qr_code_data,
+          rounded: qrCodeStyle?.borderRadius ?? 10,
+          back: qrCodeStyle?.background ?? "#202020",
+          fill: qrCodeStyle?.foreground ?? "#2cb2b5"
+        }).src
       );
 
       if (this.socket) {
@@ -558,7 +771,10 @@ class AuthArmorSDK {
           try {
             const parsedData = JSON.parse(event.data);
             if (parsedData.event === "auth:response") {
-              if (parsedData.data.response?.auth_response.response_message === "Success") {
+              if (
+                parsedData.data.response?.auth_response.response_message ===
+                "Success"
+              ) {
                 this.updateMessage(
                   "Authentication request approved!",
                   "success"
@@ -569,7 +785,10 @@ class AuthArmorSDK {
                 });
               }
 
-              if (parsedData.data.response?.auth_response.response_message === "Timeout") {
+              if (
+                parsedData.data.response?.auth_response.response_message ===
+                "Timeout"
+              ) {
                 this.updateMessage("Authentication request timed out", "warn");
                 onFailure?.({
                   data: parsedData.data,
@@ -577,7 +796,10 @@ class AuthArmorSDK {
                 });
               }
 
-              if (parsedData.data.response?.auth_response.response_message === "Declined") {
+              if (
+                parsedData.data.response?.auth_response.response_message ===
+                "Declined"
+              ) {
                 this.updateMessage("Authentication request declined", "danger");
                 onFailure?.({
                   data: parsedData.data,
@@ -640,4 +862,6 @@ class AuthArmorSDK {
   }
 }
 
-export default AuthArmorSDK;
+window.AuthArmorSDK = SDK;
+
+export default SDK;
