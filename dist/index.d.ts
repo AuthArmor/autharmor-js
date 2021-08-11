@@ -8,18 +8,6 @@ interface InviteData {
     inviteCode: string;
     signature: string;
 }
-interface AuthRequest {
-    authRequest: {
-        auth_request_id: string;
-        auth_profile_id: string;
-        visual_verify_value: string;
-        response_code: number;
-        response_message: string;
-        qr_code_data: string;
-        push_message_sent: boolean;
-    };
-    requestToken: string;
-}
 interface AuthenticateWebsocketSuccess {
     data: {
         response: any;
@@ -97,7 +85,21 @@ declare class SDK {
         confirmInvite: (nickname: string) => Promise<any>;
     };
     get auth(): {
-        authenticate: ({ nickname, sendPush, visualVerify, showPopup, qrCodeStyle, onSuccess, onFailure }: AuthenticateArgs) => Promise<AuthRequest>;
+        authenticate: ({ nickname, sendPush, visualVerify, showPopup, qrCodeStyle, onSuccess, onFailure }: AuthenticateArgs) => Promise<{
+            getTimeLeft: () => number;
+            getQRCode: () => any;
+            authRequest: {
+                auth_request_id: string;
+                auth_profile_id: string;
+                visual_verify_value: string;
+                response_code: number;
+                response_message: string;
+                qr_code_data: string;
+                push_message_sent: boolean;
+            };
+            requestToken: string;
+            timeout: number;
+        }>;
         getUser: () => Promise<any>;
         logout: () => Promise<any>;
     };
