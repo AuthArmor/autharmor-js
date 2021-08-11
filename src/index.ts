@@ -42,6 +42,7 @@ interface AuthRequest {
     push_message_sent: boolean;
   };
   requestToken: string;
+  timeout: number;
 }
 
 interface AuthenticateWebsocketSuccess {
@@ -742,19 +743,16 @@ class SDK {
         { withCredentials: true }
       );
       if (showPopup === true || (sendPush && showPopup !== false)) {
-        this.showPopup();
-      }
-
-      const qrCodeImage = $(".qr-code-img");
-      qrCodeImage?.setAttribute(
-        "src",
-        kjua({
+        const qrCode = kjua({
           text: data.authRequest.qr_code_data,
           rounded: qrCodeStyle?.borderRadius ?? 10,
           back: qrCodeStyle?.background ?? "#202020",
           fill: qrCodeStyle?.foreground ?? "#2cb2b5"
-        }).src
-      );
+        }).src;
+        const qrCodeImage = $(".qr-code-img");
+        qrCodeImage?.setAttribute("src", qrCode);
+        this.showPopup();
+      }
 
       if (this.socket) {
         this.socket.send(
@@ -815,7 +813,17 @@ class SDK {
         };
       }
 
-      return data;
+      return {
+        ...data,
+        getTimeLeft: () => data.timeout - Date.now(),
+        getQRCode: () =>
+          kjua({
+            text: data.authRequest.qr_code_data,
+            rounded: qrCodeStyle?.borderRadius ?? 10,
+            back: qrCodeStyle?.background ?? "#202020",
+            fill: qrCodeStyle?.foreground ?? "#2cb2b5"
+          }).src
+      };
     } catch (err) {
       console.error(err);
       this.hidePopup();
