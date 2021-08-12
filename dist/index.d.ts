@@ -28,6 +28,8 @@ interface AuthenticateWebsocketFail {
 interface AuthenticateArgs {
     nickname: string;
     sendPush: boolean;
+    actionName: string;
+    shortMessage: string;
     visualVerify: boolean;
     showPopup: boolean;
     qrCodeStyle: {
@@ -85,7 +87,7 @@ declare class SDK {
         confirmInvite: (nickname: string) => Promise<any>;
     };
     get auth(): {
-        authenticate: ({ nickname, sendPush, visualVerify, showPopup, qrCodeStyle, onSuccess, onFailure }: AuthenticateArgs) => Promise<{
+        authenticate: ({ nickname, sendPush, visualVerify, showPopup, actionName, shortMessage, qrCodeStyle, onSuccess, onFailure }: AuthenticateArgs) => Promise<{
             getTimeLeft: () => number;
             getQRCode: () => any;
             authRequest: {
