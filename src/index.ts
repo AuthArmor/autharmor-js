@@ -69,6 +69,8 @@ interface AuthenticateWebsocketFail {
 interface AuthenticateArgs {
   nickname: string;
   sendPush: boolean;
+  actionName: string;
+  shortMessage: string;
   visualVerify: boolean;
   showPopup: boolean;
   qrCodeStyle: {
@@ -185,7 +187,7 @@ class SDK {
 
   private showPopup = (message = "Waiting for device", hideQRBtn?: boolean) => {
     const popupOverlay = document.querySelector(".popup-overlay");
-    const authMessage = document.querySelector(".auth-message");
+    const authMessage = document.querySelector(".auth-message-text");
     const showQRCodeBtn = document.querySelector(".show-popup-qrcode-btn");
     const hideQRCodeBtn = document.querySelector(".hide-popup-qrcode-btn");
 
@@ -213,6 +215,7 @@ class SDK {
   private hidePopup = (delay = 2000) => {
     setTimeout(() => {
       const authMessage = document.querySelector(".auth-message");
+      const authMessageText = document.querySelector(".auth-message-text");
       const popupOverlay = document.querySelector(".popup-overlay");
 
       if (popupOverlay) {
@@ -223,7 +226,9 @@ class SDK {
         authMessage.setAttribute("class", "auth-message");
         this.executeEvent("popupOverlayClosed");
         setTimeout(() => {
-          authMessage.textContent = "Waiting for device";
+          if (authMessageText) {
+            authMessageText.textContent = "Waiting for device";
+          }
         }, 200);
       }
     }, delay);
@@ -231,9 +236,10 @@ class SDK {
 
   private updateMessage = (message: string, status: string = "success") => {
     const authMessage = document.querySelector(".auth-message");
-    if (authMessage) {
+    const authMessageText = document.querySelector(".auth-message-text");
+    if (authMessage && authMessageText) {
       authMessage.classList.add(`autharmor--${status}`);
-      authMessage.textContent = message;
+      authMessageText.textContent = message;
     }
   };
 
@@ -312,7 +318,7 @@ class SDK {
           min-width: 300px;
         }
 
-        .show-popup-qrcode-btn, .hide-popup-qrcode-btn {
+        .hide-popup-qrcode-btn {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -326,13 +332,42 @@ class SDK {
           transition: all .2s ease;
         }
 
-        .show-popup-qrcode-btn:hover, .hide-popup-qrcode-btn:hover {
+        .hide-popup-qrcode-btn:hover {
           background-color: rgba(255,255,255,0.1);
         }
 
-        .show-popup-qrcode-btn img, .hide-popup-qrcode-btn img {
+        .hide-popup-qrcode-btn img {
           margin-right: 6px;
           height: 20px;
+        }
+
+        .show-popup-qrcode-btn {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 100%;
+          background-color: rgba(255,255,255,0.2);
+          padding: 0 7px;
+          height: 35px;
+          color: rgba(255,255,255,0.7);
+          font-size: 12px;
+          border-radius: 0 0 15px 15px;
+          cursor: pointer;
+          transition: all .2s ease;
+        }
+
+        .show-popup-qrcode-btn:hover {
+          color: rgba(255,255,255,1);
+        }
+
+        .show-popup-qrcode-btn.hidden {
+          height: 0;
+          color: transparent;
+        }
+
+        .qrcode-btn-text {
+          margin: 0;
+          font-family: "Montserrat", sans-serif;
         }
 
         .popup-qrcode-btn-text {
@@ -395,17 +430,24 @@ class SDK {
         }
         
         .popup-overlay .auth-message {
+          display: flex;
+          align-items: baseline;
+          justify-content: center;
           margin: 0;
           font-weight: bold;
           color: white;
           font-size: 18px;
           padding: 14px 80px;
+          border-radius: 0;
           background-color: #2cb2b5;
-          border-radius: 0 0 15px 15px;
           width: 100%;
           text-align: center;
           font-family: 'Montserrat', 'Helvetica Neue', 'Roboto', 'Arial', sans-serif;
           transition: all .2s ease;
+        }
+
+        .popup-overlay .auth-message.rounded {
+          border-radius: 0 0 10px 10px;
         }
 
         .hidden {
@@ -421,10 +463,45 @@ class SDK {
         }
 
         .autharmor-icon.hidden {
-          transform: scale(0.3) translateY(-28px);
+          transform: scale(0.3) translateY(-70px);
           /* filter: grayscale(1); */
           opacity: 1;
           visibility: visible;
+        }
+
+        p.push-notice {
+          margin: 0;
+          font-size: 14px;
+          font-family: "Montserrat", sans-serif;
+          color: #ffffffa8;
+          margin-top: 12px;
+          transition: all .2s ease;
+        }
+
+        .pulse {
+            display: block;
+            width: 10px;
+            height: 10px;
+            margin-left: 14px;
+            border-radius: 50%;
+            background: #ffffff61;
+            cursor: pointer;
+            box-shadow: 0 0 0 rgba(255,255,255,.4);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255,255,255,.4)
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(255,255,255,0)
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255,255,255,0)
+            }
         }
       </style>
       <div class="popup-overlay hidden">
@@ -433,21 +510,21 @@ class SDK {
             <div class="close-popup-btn">
               <img src="${closeIcon}" alt="Close Popup Button" />
             </div>
-            <div class="show-popup-qrcode-btn">
-              <img src="${qrCode}" alt="QR Code Button" />
-              <p class="popup-qrcode-btn-text">Show QR Code</p>
-            </div>
             <div class="hide-popup-qrcode-btn hidden">
               <img src="${qrCode}" alt="QR Code Button" />
               <p class="popup-qrcode-btn-text">Hide QR Code</p>
             </div>
+            <p class="push-notice">We've sent a push message to your device(s)</p>
             <img src="${logo}" alt="AuthArmor Icon" class="autharmor-icon" />
             <div class="qr-code-img-container hidden">
               <img src="" alt="QR Code" class="qr-code-img" />
               <p class="qr-code-img-desc">Please scan the code with the AuthArmor app</p>
             </div>
           </div>
-          <p class="auth-message">Authenticating with AuthArmor...</p>
+          <div class="auth-message"><span class="auth-message-text">Authenticating with AuthArmor...</span><span class="pulse"></span></div>
+          <div class="show-popup-qrcode-btn">
+            <p class="qrcode-btn-text">Didn't get the push notification? Click here to scan a QR code instead</p>
+          </div>
         </div>
       </div>
     `;
@@ -455,8 +532,10 @@ class SDK {
     const popup = $(".popup-overlay");
     const showPopupBtn = $(".show-popup-qrcode-btn");
     const hidePopupBtn = $(".hide-popup-qrcode-btn");
+    const authMessage = $(".auth-message");
     const qrCodeContainer = $(".qr-code-img-container");
     const autharmorIcon = $(".autharmor-icon");
+    const pushNotice = $(".push-notice");
     const closePopupBtn = $(".close-popup-btn");
     let timer: NodeJS.Timeout;
 
@@ -467,6 +546,8 @@ class SDK {
       timer = setTimeout(() => {
         qrCodeContainer?.classList.remove("hidden");
         hidePopupBtn?.classList.remove("hidden");
+        authMessage?.classList.add("rounded");
+        pushNotice?.classList.add("hidden");
       }, 200);
     });
 
@@ -477,6 +558,8 @@ class SDK {
       timer = setTimeout(() => {
         autharmorIcon?.classList.remove("hidden");
         showPopupBtn?.classList.remove("hidden");
+        authMessage?.classList.remove("rounded");
+        pushNotice?.classList.remove("hidden");
       }, 200);
     });
 
@@ -493,6 +576,15 @@ class SDK {
       this.socket = new WebSocket(
         (this.url + "/socket").replace(/^http/gi, "ws")
       );
+
+      const timer = setInterval(() => {
+        if (this.socket) {
+          this.socket.send(`1`);
+          return;
+        }
+
+        clearInterval(timer);
+      }, 25000); // Keep websocket connection alive
     }
 
     window.AuthArmor.openedWindow = () => {
@@ -629,10 +721,7 @@ class SDK {
           fillColor = "#2cb2b5",
           borderRadius = 0
         } = {}) => {
-          const stringifiedInvite = data.data.qr_code_data.replace(
-            "autharmor.com",
-            "autharmor.dev"
-          );
+          const stringifiedInvite = data.data.qr_code_data;
           const code = kjua({
             text: stringifiedInvite,
             rounded: borderRadius,
@@ -724,6 +813,8 @@ class SDK {
     sendPush = true,
     visualVerify = false,
     showPopup = true,
+    actionName,
+    shortMessage,
     qrCodeStyle = {
       borderRadius: 10,
       background: "#202020",
@@ -738,7 +829,9 @@ class SDK {
         {
           nickname,
           send_push: sendPush && nickname?.length > 0,
-          use_visual_verify: visualVerify
+          use_visual_verify: visualVerify,
+          action_name: actionName,
+          short_msg: shortMessage
         },
         { withCredentials: true }
       );
