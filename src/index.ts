@@ -66,6 +66,11 @@ interface AuthenticateWebsocketFail {
   metadata: any;
 }
 
+interface LocationData {
+  latitude: string;
+  longitude: string;
+}
+
 interface AuthenticateArgs {
   nickname: string;
   sendPush: boolean;
@@ -78,6 +83,7 @@ interface AuthenticateArgs {
     background: string;
     foreground: string;
   };
+  locationData: LocationData;
   onSuccess: (data: AuthenticateWebsocketSuccess) => any;
   onFailure: (data: AuthenticateWebsocketFail) => any;
 }
@@ -815,6 +821,7 @@ class SDK {
     showPopup = true,
     actionName,
     shortMessage,
+    locationData,
     qrCodeStyle = {
       borderRadius: 10,
       background: "#202020",
@@ -831,7 +838,8 @@ class SDK {
           send_push: sendPush && nickname?.length > 0,
           use_visual_verify: visualVerify,
           action_name: actionName,
-          short_msg: shortMessage
+          short_msg: shortMessage,
+          origin_location_data: locationData
         },
         { withCredentials: true }
       );
