@@ -443,7 +443,7 @@ class SDK {
           font-weight: bold;
           color: white;
           font-size: 18px;
-          padding: 14px 80px;
+          padding: 14px 30px;
           border-radius: 0;
           background-color: #2cb2b5;
           width: 100%;
