@@ -7,12 +7,25 @@
     <title>Document</title>
   </head>
   <body>
-    <script src="../build/index.umd.js"></script>
+    <h1>Nickname</h1>
+    <input type="text" class="nickname-input" />
+    <button class="submit-btn">Submit</button>
+    <script src="https://cdn.autharmor.com/scripts/autharmor-jsclient-sdk/v2.0.0/autharmor-jsclient-sdk_v2.0.0.js"></script>
     <script>
       const AuthArmor = new window.AuthArmorSDK({
-        url: "http://localhost:8000"
+        url: "http://localhost:8000", // Your backend URL goes here
+        polling: true
       });
-      AuthArmor.popup.show();
+
+      document
+        .querySelector(".submit-btn")
+        .addEventListener("click", async () => {
+          await AuthArmor.auth.authenticate({
+            // auth info goes here
+            nickname: document.querySelector(".nickname-input").value,
+            shortMessage: "Hello"
+          });
+        });
     </script>
   </body>
 </html>
