@@ -104,8 +104,8 @@ class SDK {
   private socket: WebSocket | undefined;
   private requestCompleted: boolean = false;
 
-  constructor({ url = "", pathPrefix = "/auth/autharmor", polling = false }) {
-    this.url = this.processUrl(url) + this.processUrl(pathPrefix);
+  constructor({ url = "", basePath = "/auth/autharmor", polling = false }) {
+    this.url = this.processUrl(url) + this.processUrl(basePath);
     Axios.defaults.baseURL = this.url;
 
     // Supported events
@@ -496,6 +496,23 @@ class SDK {
             animation: pulse 2s infinite;
         }
 
+        .visual-verify-icon {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: absolute;
+          top: 15px;
+          left: 20px;
+          width: 20px;
+          height: 20px;
+          opacity: 0;
+          background-color: #404040;
+          color: white;
+          font-weight: bold;
+          visibility: hidden;
+          transition: all .2s ease;
+        }
+
         @keyframes pulse {
             0% {
                 box-shadow: 0 0 0 0 rgba(255,255,255,.4)
@@ -520,6 +537,7 @@ class SDK {
               <img src="${qrCode}" alt="QR Code Button" />
               <p class="popup-qrcode-btn-text">Hide QR Code</p>
             </div>
+            <div class="visual-verify-icon hidden"></div>
             <p class="push-notice">We've sent a push message to your device(s)</p>
             <img src="${logo}" alt="AuthArmor Icon" class="autharmor-icon" />
             <div class="qr-code-img-container hidden">
