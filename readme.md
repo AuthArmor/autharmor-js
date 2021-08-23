@@ -31,7 +31,7 @@ In order to initialize the SDK, you'll have to create a new instance of the Auth
 ```javascript
 const SDK = new AuthArmorSDK({
   url: "https://api.example.com", // specify your backend's url
-  pathPrefix: "/auth/autharmor", // specify a prefix where the Backend SDK is mounted, this is set to "/auth/autharmor" by default in both the Client-side and the Backend SDKs
+  basePath: "/auth/autharmor", // specify a prefix where the Backend SDK is mounted, this is set to "/auth/autharmor" by default in both the Client-side and the Backend SDKs
   polling: false // Specify whether you'd like to receive auth status updates via WebSockets (default) or HTTP polling
 });
 ```
