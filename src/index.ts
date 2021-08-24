@@ -41,27 +41,26 @@ interface AuthRequest {
     qr_code_data: string;
     push_message_sent: boolean;
   };
-  requestToken: string;
   timeout: number;
 }
 
-interface AuthenticateWebsocketSuccess {
-  data: {
-    response: any;
-    nickname: string;
-    token: string;
-    authorized: true;
-  };
+type AuthenticateResponse =
+  | AuthenticateResponseSuccess
+  | AuthenticateResponseFail;
+
+interface AuthenticateResponseSuccess {
+  response: any;
+  nickname: string;
+  token: string;
+  authorized: true;
   /* Custom response received from auth server */
   metadata: any;
 }
 
-interface AuthenticateWebsocketFail {
-  data: {
-    response: any;
-    nickname: string;
-    authorized: false;
-  };
+interface AuthenticateResponseFail {
+  response: any;
+  nickname: string;
+  authorized: false;
   /* Custom response received from auth server */
   metadata: any;
 }
@@ -84,8 +83,20 @@ interface AuthenticateArgs {
     foreground: string;
   };
   locationData: LocationData;
-  onSuccess: (data: AuthenticateWebsocketSuccess) => any;
-  onFailure: (data: AuthenticateWebsocketFail) => any;
+  onSuccess: (data: AuthenticateResponseSuccess) => any;
+  onFailure: (data: AuthenticateResponseFail) => any;
+}
+
+interface OnAuthResponse {
+  authResponse: AuthenticateResponse;
+  onSuccess: (data: AuthenticateResponseSuccess) => any;
+  onFailure: (data: AuthenticateResponseFail) => any;
+}
+
+interface PollAuthRequest {
+  id: string;
+  onSuccess: (data: AuthenticateResponseSuccess) => any;
+  onFailure: (data: AuthenticateResponseFail) => any;
 }
 
 declare global {
@@ -103,9 +114,12 @@ class SDK {
   private eventListeners: Map<Events, EventListener[]>;
   private socket: WebSocket | undefined;
   private requestCompleted: boolean = false;
+  private polling: boolean;
+  private pollInterval: number = 500;
 
-  constructor({ url = "", basePath = "/auth/autharmor", polling = false }) {
-    this.url = this.processUrl(url) + this.processUrl(basePath);
+  constructor({ endpointBasePath = "", polling = false }) {
+    this.url = this.processUrl(endpointBasePath);
+    this.polling = polling;
     Axios.defaults.baseURL = this.url;
 
     // Supported events
@@ -832,6 +846,70 @@ class SDK {
 
   // -- Authentication functionality
 
+  private onAuthResponse = ({
+    authResponse,
+    onSuccess,
+    onFailure
+  }: OnAuthResponse) => {
+    const responseMessage =
+      authResponse.response?.auth_response.response_message;
+    if (authResponse.authorized) {
+      this.updateMessage("Authentication request approved!", "success");
+      onSuccess?.(authResponse);
+      return true;
+    }
+
+    if (!authResponse.authorized && responseMessage === "Timeout") {
+      this.updateMessage("Authentication request timed out", "warn");
+      onFailure?.(authResponse);
+      return true;
+    }
+
+    if (!authResponse.authorized && responseMessage === "Declined") {
+      this.updateMessage("Authentication request declined", "danger");
+      onFailure?.(authResponse);
+      return true;
+    }
+
+    return false;
+  };
+
+  private pollAuthRequest = async ({
+    id,
+    onSuccess,
+    onFailure
+  }: PollAuthRequest) => {
+    try {
+      const {
+        data: authResponse
+      }: AxiosResponse<AuthenticateResponse> = await Axios.get(
+        `/authenticate/status/${id}`
+      );
+
+      const pollComplete = this.onAuthResponse({
+        authResponse: authResponse,
+        onSuccess,
+        onFailure
+      });
+
+      if (!pollComplete) {
+        setTimeout(() => {
+          this.pollAuthRequest({
+            id,
+            onSuccess,
+            onFailure
+          });
+        }, this.pollInterval);
+        return;
+      }
+
+      this.hidePopup();
+    } catch (err) {
+      console.debug("An error has occurred while polling:", err);
+      this.hidePopup();
+    }
+  };
+
   private authenticate = async ({
     nickname,
     sendPush = true,
@@ -878,8 +956,7 @@ class SDK {
           JSON.stringify({
             event: "subscribe:auth",
             data: {
-              id: data.authRequest.auth_request_id,
-              requestToken: data.requestToken
+              id: data.authRequest.auth_request_id
             }
           })
         );
@@ -888,48 +965,25 @@ class SDK {
           try {
             const parsedData = JSON.parse(event.data);
             if (parsedData.event === "auth:response") {
-              if (
-                parsedData.data.response?.auth_response.response_message ===
-                "Success"
-              ) {
-                this.updateMessage(
-                  "Authentication request approved!",
-                  "success"
-                );
-                onSuccess?.({
-                  data: parsedData.data,
-                  metadata: parsedData.metadata
-                });
-              }
-
-              if (
-                parsedData.data.response?.auth_response.response_message ===
-                "Timeout"
-              ) {
-                this.updateMessage("Authentication request timed out", "warn");
-                onFailure?.({
-                  data: parsedData.data,
-                  metadata: parsedData.metadata
-                });
-              }
-
-              if (
-                parsedData.data.response?.auth_response.response_message ===
-                "Declined"
-              ) {
-                this.updateMessage("Authentication request declined", "danger");
-                onFailure?.({
-                  data: parsedData.data,
-                  metadata: parsedData.metadata
-                });
-              }
-
+              this.onAuthResponse({
+                authResponse: parsedData.data,
+                onSuccess,
+                onFailure
+              });
               this.hidePopup();
             }
           } catch (err) {
             console.error(err);
           }
         };
+      }
+
+      if (this.polling) {
+        this.pollAuthRequest({
+          id: data.authRequest.auth_request_id,
+          onFailure,
+          onSuccess
+        });
       }
 
       return {
