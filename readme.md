@@ -36,11 +36,11 @@ const SDK = new AuthArmorSDK({
 });
 ```
 
-## 🧲 Invites
+## 🧲 Registration Invites
 
-### Generating a new invite
+### Generating a new Registration invite
 
-You can easily generate invites to your app by doing the following:
+You can easily generate registration invites to your app by doing the following:
 
 ```javascript
 // Initialize the SDK
@@ -128,6 +128,30 @@ try {
 } catch (err) {
   console.error("The request was declined or has timed out!", err);
 }
+```
+
+### Creating a Usernameless auth request
+
+AuthArmor also supports performing Usernameless authentication requests which require the user to only scan a QR Code through the AuthArmor app and approve the login request.
+
+You can generate the QR Code and render it in your own app by doing the following:
+
+```javascript
+const authRequest = await AuthArmor.auth.authenticate({
+  onSuccess: response => {
+    // Do something with the success response
+  },
+  onFailure: response => {
+    // Do something with the failure response
+  }
+});
+// Get the Auth request QR Code Image
+const qrCodeImage = authRequest.getQRCode();
+// Get time left before QR Code expires (in milliseconds)
+const timeLeft = authRequest.getTimeLeft();
+
+// Display the QR Code in your own site
+document.querySelector(".qr-code-image").src = qrCodeImage;
 ```
 
 ## 💥 Events
