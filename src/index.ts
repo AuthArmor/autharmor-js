@@ -32,16 +32,15 @@ interface InviteData {
 }
 
 interface AuthRequest {
-  authRequest: {
-    auth_request_id: string;
-    auth_profile_id: string;
-    visual_verify_value: string;
-    response_code: number;
-    response_message: string;
-    qr_code_data: string;
-    push_message_sent: boolean;
-  };
-  timeout: number;
+  auth_request_id: string;
+  auth_profile_id: string;
+  visual_verify_value: string;
+  response_code: number;
+  response_message: string;
+  qr_code_data: string;
+  push_message_sent: boolean;
+  timeout_in_seconds: number;
+  timeout_utc_datetime: string;
 }
 
 type AuthenticateResponse =
@@ -53,6 +52,7 @@ interface AuthenticateResponseSuccess {
   nickname: string;
   token: string;
   authorized: true;
+  status: "Success" | "Timeout" | "Declined";
   /* Custom response received from auth server */
   metadata: any;
 }
@@ -61,6 +61,7 @@ interface AuthenticateResponseFail {
   response: any;
   nickname: string;
   authorized: false;
+  status: "Success" | "Timeout" | "Declined";
   /* Custom response received from auth server */
   metadata: any;
 }
@@ -853,21 +854,40 @@ class SDK {
   }: OnAuthResponse) => {
     const responseMessage =
       authResponse.response?.auth_response.response_message;
+    const nickname =
+      authResponse.response?.auth_response?.auth_details?.request_details
+        ?.auth_profile_details?.nickname;
+    const authorized = authResponse.response?.auth_response?.authorized;
     if (authResponse.authorized) {
       this.updateMessage("Authentication request approved!", "success");
-      onSuccess?.(authResponse);
+      onSuccess?.({
+        ...authResponse,
+        nickname,
+        authorized,
+        status: responseMessage
+      });
       return true;
     }
 
     if (!authResponse.authorized && responseMessage === "Timeout") {
       this.updateMessage("Authentication request timed out", "warn");
-      onFailure?.(authResponse);
+      onFailure?.({
+        ...authResponse,
+        nickname,
+        authorized,
+        status: responseMessage
+      });
       return true;
     }
 
     if (!authResponse.authorized && responseMessage === "Declined") {
       this.updateMessage("Authentication request declined", "danger");
-      onFailure?.(authResponse);
+      onFailure?.({
+        ...authResponse,
+        nickname,
+        authorized,
+        status: responseMessage
+      });
       return true;
     }
 
@@ -941,7 +961,7 @@ class SDK {
       );
       if (showPopup === true || (sendPush && showPopup !== false)) {
         const qrCode = kjua({
-          text: data.authRequest.qr_code_data,
+          text: data.qr_code_data,
           rounded: qrCodeStyle?.borderRadius ?? 10,
           back: qrCodeStyle?.background ?? "#202020",
           fill: qrCodeStyle?.foreground ?? "#2cb2b5"
@@ -956,7 +976,7 @@ class SDK {
           JSON.stringify({
             event: "subscribe:auth",
             data: {
-              id: data.authRequest.auth_request_id
+              id: data.auth_request_id
             }
           })
         );
@@ -980,7 +1000,7 @@ class SDK {
 
       if (this.polling) {
         this.pollAuthRequest({
-          id: data.authRequest.auth_request_id,
+          id: data.auth_request_id,
           onFailure,
           onSuccess
         });
@@ -988,10 +1008,11 @@ class SDK {
 
       return {
         ...data,
-        getTimeLeft: () => data.timeout - Date.now(),
+        getTimeLeft: () =>
+          new Date(data.timeout_utc_datetime).getTime() - Date.now(),
         getQRCode: () =>
           kjua({
-            text: data.authRequest.qr_code_data,
+            text: data.qr_code_data,
             rounded: qrCodeStyle?.borderRadius ?? 10,
             back: qrCodeStyle?.background ?? "#202020",
             fill: qrCodeStyle?.foreground ?? "#2cb2b5"
