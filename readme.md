@@ -105,21 +105,17 @@ try {
     },
     // This event listener is triggered once the user approves an auth request
     onSuccess: ({
-      data: {
-          response,
-          nickname,
-          token,
-          authorized
-      },
+      response,
+      nickname,
+      token,
+      authorized,
       metadata
     }) => void,
     // This event listener is triggered once the user declines an auth request
     onFailure: ({
-      data: {
-          response,
-          nickname,
-          authorized,
-      },
+      response,
+      nickname,
+      authorized,
       metadata
     }) => void
   });
