@@ -21,6 +21,14 @@ type Events =
 
 type EventListener = (...data: any) => void | Promise<void>;
 
+interface InviteNicknameOptions {
+  nickname: string;
+}
+
+interface InviteIdOptions {
+  id: string;
+}
+
 interface InviteOptions {
   nickname: string;
   referenceId?: string;
@@ -90,6 +98,7 @@ interface AuthenticateArgs {
 
 interface OnAuthResponse {
   authResponse: AuthenticateResponse;
+  redirectedUrl?: string;
   onSuccess: (data: AuthenticateResponseSuccess) => any;
   onFailure: (data: AuthenticateResponseFail) => any;
 }
@@ -787,6 +796,92 @@ class SDK {
     }
   };
 
+  private getInviteById = async ({ id }: InviteIdOptions) => {
+    try {
+      if (!id) {
+        throw new Error("Please specify a nickname for the invite code");
+      }
+
+      const { data } = await Axios.get(`/invite/${id}`);
+
+      return {
+        ...data,
+        getQRCode: ({
+          backgroundColor = "#202020",
+          fillColor = "#2cb2b5",
+          borderRadius = 0
+        } = {}) => {
+          const stringifiedInvite = data.data.qr_code_data;
+          const code = kjua({
+            text: stringifiedInvite,
+            rounded: borderRadius,
+            back: backgroundColor,
+            fill: fillColor
+          });
+          return code.src;
+        },
+        getInviteLink: () => {
+          return `${config.inviteURL}/?i=${data.invite_code}&aa_sig=${data.aa_sig}`;
+        },
+        openInviteLink: () => {
+          this.showPopup(undefined, true);
+          this.popupWindow(
+            `${config.inviteURL}/?i=${data.invite_code}&aa_sig=${data.aa_sig}`,
+            "Link your account with AuthArmor",
+            600,
+            400
+          );
+        }
+      };
+    } catch (err) {
+      throw err?.response?.data;
+    }
+  };
+
+  private getInvitesByNickname = async ({
+    nickname
+  }: InviteNicknameOptions) => {
+    try {
+      if (!nickname) {
+        throw new Error("Please specify a nickname for the invite code");
+      }
+
+      const { data } = await Axios.get(`/invites/${nickname}`);
+
+      return {
+        ...data,
+        getQRCode: ({
+          backgroundColor = "#202020",
+          fillColor = "#2cb2b5",
+          borderRadius = 0
+        } = {}) => {
+          const stringifiedInvite = data.data.qr_code_data;
+          const code = kjua({
+            text: stringifiedInvite,
+            rounded: borderRadius,
+            back: backgroundColor,
+            fill: fillColor
+          });
+          return code.src;
+        },
+        getInviteLink: () => {
+          return `${config.inviteURL}/?i=${data.invite_code}&aa_sig=${data.aa_sig}`;
+        },
+        openInviteLink: () => {
+          this.showPopup(undefined, true);
+          this.popupWindow(
+            `${config.inviteURL}/?i=${data.invite_code}&aa_sig=${data.aa_sig}`,
+            "Link your account with AuthArmor",
+            600,
+            400
+          );
+        }
+      };
+    } catch (err) {
+      throw err?.response?.data;
+    }
+  };
+
   private confirmInvite = async (nickname: string) => {
     try {
       this.executeEvent("authenticating");
@@ -849,15 +944,23 @@ class SDK {
 
   private onAuthResponse = ({
     authResponse,
+    redirectedUrl,
     onSuccess,
     onFailure
   }: OnAuthResponse) => {
     const responseMessage =
-      authResponse.response?.auth_response.response_message;
+      authResponse.response?.auth_response?.response_message;
     const nickname =
       authResponse.response?.auth_response?.auth_details?.request_details
         ?.auth_profile_details?.nickname;
     const authorized = authResponse.response?.auth_response?.authorized;
+
+    if (redirectedUrl) {
+      this.updateMessage("Authentication request approved!", "success");
+      window.location.href = redirectedUrl;
+      return true;
+    }
+
     if (authResponse.authorized) {
       this.updateMessage("Authentication request approved!", "success");
       onSuccess?.({
@@ -901,13 +1004,16 @@ class SDK {
   }: PollAuthRequest) => {
     try {
       const {
-        data: authResponse
+        data: authResponse,
+        request
       }: AxiosResponse<AuthenticateResponse> = await Axios.get(
         `/authenticate/status/${id}`
       );
 
       const pollComplete = this.onAuthResponse({
-        authResponse: authResponse,
+        authResponse,
+        redirectedUrl:
+          typeof authResponse === "string" ? request.responseURL : null,
         onSuccess,
         onFailure
       });
@@ -947,6 +1053,12 @@ class SDK {
     onFailure
   }: AuthenticateArgs) => {
     try {
+      if (showPopup === true || (sendPush && showPopup !== false)) {
+        const qrCodeImage = $(".qr-code-img");
+        qrCodeImage?.classList.add("hidden");
+        this.showPopup();
+      }
+
       const { data }: AxiosResponse<AuthRequest> = await Axios.post(
         `/authenticate`,
         {
@@ -967,8 +1079,8 @@ class SDK {
           fill: qrCodeStyle?.foreground ?? "#2cb2b5"
         }).src;
         const qrCodeImage = $(".qr-code-img");
+        qrCodeImage?.classList.remove("hidden");
         qrCodeImage?.setAttribute("src", qrCode);
-        this.showPopup();
       }
 
       if (this.socket) {
@@ -1043,7 +1155,8 @@ class SDK {
     return {
       generateInviteCode: this.generateInviteCode,
       setInviteData: this.setInviteData,
-      confirmInvite: this.confirmInvite
+      getInviteById: this.getInviteById,
+      getInvitesByNickname: this.getInvitesByNickname
     };
   }
 
