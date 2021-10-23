@@ -3,7 +3,7 @@ const commonConfig = require("./webpack.config");
 
 module.exports = {
   ...commonConfig,
-  devtool: false,
+  devtool: undefined,
   output: {
     filename: "index.umd.js",
     hashDigestLength: 8,

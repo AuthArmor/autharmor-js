@@ -23,15 +23,18 @@ type EventListener = (...data: any) => void | Promise<void>;
 
 interface InviteNicknameOptions {
   nickname: string;
+  headers?: Record<string, string>;
 }
 
 interface InviteIdOptions {
   id: string;
+  headers?: Record<string, string>;
 }
 
 interface InviteOptions {
   nickname: string;
   referenceId?: string;
+  headers?: Record<string, string>;
 }
 
 interface InviteData {
@@ -86,6 +89,7 @@ interface AuthenticateArgs {
   shortMessage: string;
   visualVerify: boolean;
   showPopup: boolean;
+  headers?: Record<string, string>;
   qrCodeStyle: {
     borderRadius: number;
     background: string;
@@ -105,6 +109,7 @@ interface OnAuthResponse {
 
 interface PollAuthRequest {
   id: string;
+  headers?: Record<string, string>;
   onSuccess: (data: AuthenticateResponseSuccess) => any;
   onFailure: (data: AuthenticateResponseFail) => any;
 }
@@ -746,6 +751,7 @@ class SDK {
 
   private generateInviteCode = async ({
     nickname,
+    headers,
     referenceId
   }: InviteOptions) => {
     try {
@@ -759,7 +765,7 @@ class SDK {
           nickname,
           referenceId
         },
-        { withCredentials: true }
+        { withCredentials: true, headers }
       );
 
       return {
@@ -769,7 +775,7 @@ class SDK {
           fillColor = "#2cb2b5",
           borderRadius = 0
         } = {}) => {
-          const stringifiedInvite = data.data.qr_code_data;
+          const stringifiedInvite = data.qr_code_data;
           const code = kjua({
             text: stringifiedInvite,
             rounded: borderRadius,
@@ -796,13 +802,13 @@ class SDK {
     }
   };
 
-  private getInviteById = async ({ id }: InviteIdOptions) => {
+  private getInviteById = async ({ id, headers }: InviteIdOptions) => {
     try {
       if (!id) {
         throw new Error("Please specify a nickname for the invite code");
       }
 
-      const { data } = await Axios.get(`/invite/${id}`);
+      const { data } = await Axios.get(`/invite/${id}`, { headers });
 
       return {
         ...data,
@@ -811,7 +817,7 @@ class SDK {
           fillColor = "#2cb2b5",
           borderRadius = 0
         } = {}) => {
-          const stringifiedInvite = data.data.qr_code_data;
+          const stringifiedInvite = data.qr_code_data;
           const code = kjua({
             text: stringifiedInvite,
             rounded: borderRadius,
@@ -839,14 +845,15 @@ class SDK {
   };
 
   private getInvitesByNickname = async ({
-    nickname
+    nickname,
+    headers
   }: InviteNicknameOptions) => {
     try {
       if (!nickname) {
         throw new Error("Please specify a nickname for the invite code");
       }
 
-      const { data } = await Axios.get(`/invites/${nickname}`);
+      const { data } = await Axios.get(`/invites/${nickname}`, { headers });
 
       return {
         ...data,
@@ -855,7 +862,7 @@ class SDK {
           fillColor = "#2cb2b5",
           borderRadius = 0
         } = {}) => {
-          const stringifiedInvite = data.data.qr_code_data;
+          const stringifiedInvite = data.qr_code_data;
           const code = kjua({
             text: stringifiedInvite,
             rounded: borderRadius,
@@ -879,53 +886,6 @@ class SDK {
       };
     } catch (err) {
       throw err?.response?.data;
-    }
-  };
-
-  private confirmInvite = async (nickname: string) => {
-    try {
-      this.executeEvent("authenticating");
-      this.showPopup();
-      const { data } = await Axios.post(
-        `/invite/confirm`,
-        {
-          nickname
-        },
-        { withCredentials: true }
-      );
-
-      if (data.response_message === "Timeout") {
-        this.updateMessage("Authentication request timed out", "warn");
-        this.hidePopup();
-        throw data;
-      }
-
-      if (data.response_message === "Success") {
-        this.updateMessage("Authentication request approved!", "success");
-        this.hidePopup();
-        return data;
-      }
-
-      if (data.response_message === "Declined") {
-        this.updateMessage("Authentication request declined", "danger");
-        this.hidePopup();
-        throw data;
-      }
-
-      this.hidePopup();
-      return data;
-    } catch (err) {
-      this.updateMessage(
-        err?.response?.data.errorMessage ?? "An error has occurred",
-        "danger"
-      );
-      this.hidePopup();
-      throw err?.response?.data
-        ? err?.response?.data.errorMessage ?? {
-            errorCode: 400,
-            errorMessage: "An unknown error has occurred"
-          }
-        : err;
     }
   };
 
@@ -999,6 +959,7 @@ class SDK {
 
   private pollAuthRequest = async ({
     id,
+    headers,
     onSuccess,
     onFailure
   }: PollAuthRequest) => {
@@ -1007,7 +968,10 @@ class SDK {
         data: authResponse,
         request
       }: AxiosResponse<AuthenticateResponse> = await Axios.get(
-        `/authenticate/status/${id}`
+        `/authenticate/status/${id}`,
+        {
+          headers
+        }
       );
 
       const pollComplete = this.onAuthResponse({
@@ -1044,11 +1008,7 @@ class SDK {
     actionName,
     shortMessage,
     locationData,
-    qrCodeStyle = {
-      borderRadius: 10,
-      background: "#202020",
-      foreground: "#2cb2b5"
-    },
+    headers,
     onSuccess,
     onFailure
   }: AuthenticateArgs) => {
@@ -1069,14 +1029,14 @@ class SDK {
           short_msg: shortMessage,
           origin_location_data: locationData
         },
-        { withCredentials: true }
+        { withCredentials: true, headers }
       );
       if (showPopup === true || (sendPush && showPopup !== false)) {
         const qrCode = kjua({
           text: data.qr_code_data,
-          rounded: qrCodeStyle?.borderRadius ?? 10,
-          back: qrCodeStyle?.background ?? "#202020",
-          fill: qrCodeStyle?.foreground ?? "#2cb2b5"
+          rounded: 10,
+          back: "#202020",
+          fill: "#2cb2b5"
         }).src;
         const qrCodeImage = $(".qr-code-img");
         qrCodeImage?.classList.remove("hidden");
@@ -1122,12 +1082,16 @@ class SDK {
         ...data,
         getTimeLeft: () =>
           new Date(data.timeout_utc_datetime).getTime() - Date.now(),
-        getQRCode: () =>
+        getQRCode: ({
+          backgroundColor = "#202020",
+          fillColor = "#2cb2b5",
+          borderRadius = 0
+        }) =>
           kjua({
             text: data.qr_code_data,
-            rounded: qrCodeStyle?.borderRadius ?? 10,
-            back: qrCodeStyle?.background ?? "#202020",
-            fill: qrCodeStyle?.foreground ?? "#2cb2b5"
+            rounded: borderRadius ?? 10,
+            back: backgroundColor,
+            fill: fillColor
           }).src
       };
     } catch (err) {
