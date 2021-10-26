@@ -1086,7 +1086,7 @@ class SDK {
           backgroundColor = "#202020",
           fillColor = "#2cb2b5",
           borderRadius = 0
-        }) =>
+        } = {}) =>
           kjua({
             text: data.qr_code_data,
             rounded: borderRadius ?? 10,
