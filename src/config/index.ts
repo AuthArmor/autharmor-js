@@ -1,3 +1,3 @@
 export default {
-  inviteURL: "https://invite.autharmor.dev"
+  inviteURL: "https://invite.autharmor.com"
 };

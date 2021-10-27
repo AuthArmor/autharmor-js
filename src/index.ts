@@ -1,6 +1,7 @@
-import Axios, { AxiosResponse } from "axios";
+import Axios, { Response } from "redaxios";
 // @ts-ignore
 import kjua from "kjua";
+import generateColor from "string-to-color";
 import config from "./config/index";
 import qrCode from "./assets/qr-code.svg";
 import logo from "./assets/logo.png";
@@ -65,7 +66,7 @@ interface AuthenticateResponseSuccess {
   authorized: true;
   status: "Success" | "Timeout" | "Declined";
   /* Custom response received from auth server */
-  metadata: any;
+  metadata?: any;
 }
 
 interface AuthenticateResponseFail {
@@ -74,7 +75,7 @@ interface AuthenticateResponseFail {
   authorized: false;
   status: "Success" | "Timeout" | "Declined";
   /* Custom response received from auth server */
-  metadata: any;
+  metadata?: any;
 }
 
 interface LocationData {
@@ -252,9 +253,15 @@ class SDK {
       const authMessage = document.querySelector(".auth-message");
       const authMessageText = document.querySelector(".auth-message-text");
       const popupOverlay = document.querySelector(".popup-overlay");
+      const visualVerifyElement = $(".visual-verify-icon") as HTMLDivElement;
 
       if (popupOverlay) {
         popupOverlay.classList.add("hidden");
+      }
+
+      if (visualVerifyElement) {
+        visualVerifyElement.classList.add("hidden");
+        visualVerifyElement.textContent = "";
       }
 
       if (authMessage) {
@@ -498,7 +505,7 @@ class SDK {
         }
 
         .autharmor-icon.hidden {
-          transform: scale(0.3) translateY(-70px);
+          transform: scale(0.3) translateY(calc(-100% + 38px));
           /* filter: grayscale(1); */
           opacity: 1;
           visibility: visible;
@@ -526,19 +533,20 @@ class SDK {
         }
 
         .visual-verify-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
           position: absolute;
           top: 15px;
           left: 20px;
-          width: 20px;
-          height: 20px;
-          opacity: 0;
-          background-color: #404040;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 35px;
+          height: 35px;
           color: white;
           font-weight: bold;
-          visibility: hidden;
+          font-family: Poppins, Montserrat, sans-serif;
+          background-color: #404040;
+          font-size: 14px;
+          border-radius: 100px;
           transition: all .2s ease;
         }
 
@@ -623,6 +631,13 @@ class SDK {
       qrCodeContainer?.classList.add("hidden");
       autharmorIcon?.classList.remove("hidden");
       showPopupBtn?.classList.remove("hidden");
+
+      const visualVerifyElement = $(".visual-verify-icon") as HTMLDivElement;
+
+      if (visualVerifyElement) {
+        visualVerifyElement.classList.add("hidden");
+        visualVerifyElement.textContent = "";
+      }
     });
 
     if (!polling) {
@@ -966,18 +981,26 @@ class SDK {
     try {
       const {
         data: authResponse,
-        request
-      }: AxiosResponse<AuthenticateResponse> = await Axios.get(
-        `/authenticate/status/${id}`,
-        {
-          headers
-        }
-      );
+        redirect,
+        url,
+        config
+      }: Response<any> = await Axios.get(`/authenticate/status/${id}`, {
+        headers
+      });
+
+      const urlMismatch = url !== this.url + `/authenticate/status/${id}`;
 
       const pollComplete = this.onAuthResponse({
-        authResponse,
-        redirectedUrl:
-          typeof authResponse === "string" ? request.responseURL : null,
+        authResponse: {
+          authorized: authResponse.auth_response?.authorized,
+          response: authResponse,
+          nickname:
+            authResponse.auth_response?.auth_details.response_details
+              .auth_profile_details.nickname,
+          status: authResponse.auth_request_status_name,
+          token: ""
+        },
+        redirectedUrl: urlMismatch || redirect ? url : undefined,
         onSuccess,
         onFailure
       });
@@ -1019,7 +1042,7 @@ class SDK {
         this.showPopup();
       }
 
-      const { data }: AxiosResponse<AuthRequest> = await Axios.post(
+      const { data }: Response<AuthRequest> = await Axios.post(
         `/authenticate`,
         {
           nickname,
@@ -1041,6 +1064,16 @@ class SDK {
         const qrCodeImage = $(".qr-code-img");
         qrCodeImage?.classList.remove("hidden");
         qrCodeImage?.setAttribute("src", qrCode);
+      }
+
+      const visualVerifyElement = $(".visual-verify-icon") as HTMLDivElement;
+
+      if (visualVerifyElement && data.visual_verify_value) {
+        visualVerifyElement.classList.remove("hidden");
+        visualVerifyElement.textContent = data.visual_verify_value;
+        visualVerifyElement.style.backgroundColor = generateColor(
+          data.visual_verify_value
+        );
       }
 
       if (this.socket) {
