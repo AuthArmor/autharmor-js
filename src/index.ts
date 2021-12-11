@@ -933,7 +933,7 @@ class SDK {
         ?.auth_profile_details?.nickname;
     const authorized = authResponse.response?.auth_response?.authorized;
 
-    console.log({ authResponse });
+    console.debug({ authResponse });
 
     if (redirectedUrl) {
       this.updateMessage("Authentication request approved!", "success");
