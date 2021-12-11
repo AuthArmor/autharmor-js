@@ -35,6 +35,7 @@ interface InviteIdOptions {
 interface InviteOptions {
   nickname: string;
   referenceId?: string;
+  reset?: boolean;
   headers?: Record<string, string>;
 }
 
@@ -767,7 +768,8 @@ class SDK {
   private generateInviteCode = async ({
     nickname,
     headers,
-    referenceId
+    referenceId,
+    reset
   }: InviteOptions) => {
     try {
       if (!nickname) {
@@ -778,7 +780,8 @@ class SDK {
         `/invite`,
         {
           nickname,
-          referenceId
+          referenceId,
+          reset
         },
         { withCredentials: true, headers }
       );
@@ -813,7 +816,7 @@ class SDK {
         }
       };
     } catch (err) {
-      throw err?.response?.data;
+      throw err?.data ?? err;
     }
   };
 
@@ -855,7 +858,7 @@ class SDK {
         }
       };
     } catch (err) {
-      throw err?.response?.data;
+      throw err?.data ?? err;
     }
   };
 
@@ -900,7 +903,7 @@ class SDK {
         }
       };
     } catch (err) {
-      throw err?.response?.data;
+      throw err?.data ?? err;
     }
   };
 
@@ -911,7 +914,7 @@ class SDK {
       });
       return data;
     } catch (err) {
-      throw err?.response?.data;
+      throw err?.data ?? err;
     }
   };
 
@@ -929,6 +932,8 @@ class SDK {
       authResponse.response?.auth_response?.auth_details?.request_details
         ?.auth_profile_details?.nickname;
     const authorized = authResponse.response?.auth_response?.authorized;
+
+    console.log({ authResponse });
 
     if (redirectedUrl) {
       this.updateMessage("Authentication request approved!", "success");
@@ -1130,7 +1135,7 @@ class SDK {
     } catch (err) {
       console.error(err);
       this.hidePopup();
-      throw err?.response?.data;
+      throw err?.data ?? err;
     }
   };
 
@@ -1142,7 +1147,7 @@ class SDK {
       });
       return data;
     } catch (err) {
-      throw err?.response?.data;
+      throw err?.data ?? err;
     }
   };
 
