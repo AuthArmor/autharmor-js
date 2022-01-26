@@ -130,9 +130,9 @@ class SDK {
   private events: Events[];
   private eventListeners: Map<Events, EventListener[]>;
   private socket: WebSocket | undefined;
-  private requestCompleted: boolean = false;
+  private requestCompleted = false;
   private polling: boolean;
-  private pollInterval: number = 500;
+  private pollInterval = 500;
 
   constructor({ endpointBasePath = "", polling = false }) {
     this.url = this.processUrl(endpointBasePath);
@@ -277,7 +277,7 @@ class SDK {
     }, delay);
   };
 
-  private updateMessage = (message: string, status: string = "success") => {
+  private updateMessage = (message: string, status = "success") => {
     const authMessage = document.querySelector(".auth-message");
     const authMessageText = document.querySelector(".auth-message-text");
     if (authMessage && authMessageText) {
@@ -663,35 +663,37 @@ class SDK {
     };
 
     window.addEventListener("message", message => {
-      const parsedMessage = JSON.parse(message.data);
+      try {
+        const parsedMessage = JSON.parse(message.data);
 
-      if (parsedMessage.type === "requestAccepted") {
-        this.executeEvent("inviteAccepted", parsedMessage);
-        this.updateMessage(parsedMessage.data.message);
-        this.requestCompleted = true;
-        this.hidePopup();
-      }
+        if (parsedMessage.type === "requestAccepted") {
+          this.executeEvent("inviteAccepted", parsedMessage);
+          this.updateMessage(parsedMessage.data.message);
+          this.requestCompleted = true;
+          this.hidePopup();
+        }
 
-      if (parsedMessage.type === "requestCancelled") {
-        this.executeEvent("inviteCancelled", parsedMessage);
-        this.updateMessage(parsedMessage.data.message, "danger");
-        this.requestCompleted = true;
-        this.hidePopup();
-      }
+        if (parsedMessage.type === "requestCancelled") {
+          this.executeEvent("inviteCancelled", parsedMessage);
+          this.updateMessage(parsedMessage.data.message, "danger");
+          this.requestCompleted = true;
+          this.hidePopup();
+        }
 
-      if (parsedMessage.type === "requestError") {
-        this.executeEvent("error", parsedMessage);
-        this.updateMessage(parsedMessage.data.message, "danger");
-        this.requestCompleted = true;
-        this.hidePopup();
-      }
+        if (parsedMessage.type === "requestError") {
+          this.executeEvent("error", parsedMessage);
+          this.updateMessage(parsedMessage.data.message, "danger");
+          this.requestCompleted = true;
+          this.hidePopup();
+        }
 
-      if (parsedMessage.type === "requestExists") {
-        this.executeEvent("inviteExists", parsedMessage);
-        this.updateMessage(parsedMessage.data.message, "warn");
-        this.requestCompleted = true;
-        this.hidePopup();
-      }
+        if (parsedMessage.type === "requestExists") {
+          this.executeEvent("inviteExists", parsedMessage);
+          this.updateMessage(parsedMessage.data.message, "warn");
+          this.requestCompleted = true;
+          this.hidePopup();
+        }
+      } catch (err) {}
     });
 
     window.AuthArmor.closedWindow = () => {
@@ -987,8 +989,7 @@ class SDK {
       const {
         data: authResponse,
         redirect,
-        url,
-        config
+        url
       }: Response<any> = await Axios.get(`/authenticate/status/${id}`, {
         headers
       });
