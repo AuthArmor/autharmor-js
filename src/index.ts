@@ -664,6 +664,10 @@ class SDK {
 
     window.addEventListener("message", message => {
       try {
+        if (message.origin === config.inviteURL) {
+          return;
+        }
+        
         const parsedMessage = JSON.parse(message.data);
 
         if (parsedMessage.type === "requestAccepted") {

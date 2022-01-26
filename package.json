@@ -1,6 +1,6 @@
 {
   "name": "autharmor-sdk",
-  "version": "2.4.3",
+  "version": "2.4.5",
   "main": "build/index.js",
   "license": "MIT",
   "homepage": "https://github.com/AuthArmor/autharmor-jsclient-sdk#readme",
@@ -12,7 +12,7 @@
     "./build"
   ],
   "scripts": {
-    "build": "cross-env NODE_ENV=production webpack --progress",
+    "build": "webpack --progress",
     "build:browser": "cross-env NODE_ENV=production webpack --progress --config ./webpack.config.browser.js",
     "build:watch": "cross-env NODE_ENV=development webpack -w --progress --config ./webpack.config.browser.js",
     "build:publish": "yarn build && yarn build:browser && yarn publish"
