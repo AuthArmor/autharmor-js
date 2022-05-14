@@ -4,34 +4,96 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./css/index.css" />
     <title>Document</title>
   </head>
   <body>
-    <h1>Nickname</h1>
-    <input type="text" class="nickname-input" />
-    <button class="submit-btn">Submit</button>
-    <script src="../build/index.umd.js"></script>
+    <div class="container">
+      <div class="config-btn">
+        Settings
+      </div>
+      <aside class="sidenav">
+        <div class="sidenav-head">
+          <p class="sidenav-title">Settings</p>
+          <div class="sidenav-close">
+            <img src="./assets/cancel.svg" alt="Close" />
+          </div>
+        </div>
+        <div class="sidenav-section">
+          <p class="sidenav-section-title">
+            Allowed Methods
+          </p>
+          <div class="sidenav-section-content">
+            <div class="allowed-methods">
+              <div class="allowed-method active" data-method="magiclink">
+                <div class="method-icon">
+                  <img src="./assets/email.svg" alt="Magic Link" />
+                </div>
+                Magic Link
+              </div>
+              <div class="allowed-method active" data-method="authenticator">
+                <div class="method-icon">
+                  <img src="./assets/phone.svg" alt="Authenticator" />
+                </div>
+                Authenticator
+              </div>
+              <div class="allowed-method active" data-method="webauthn">
+                <div class="method-icon">
+                  <img src="./assets/email.svg" alt="WebAuthn" />
+                </div>
+                WebAuthn
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <div class="form"></div>
+    </div>
+    <script src="./build/index.umd.js"></script>
     <script>
-      const AuthArmor = new window.AuthArmorSDK({
-        endpointBasePath: "http://localhost:8000/auth/autharmor", // Your backend URL goes here
-        polling: true
-      });
+      (async () => {
+        let selectedMethods = ["authenticator", "webauthn", "magiclink"];
+        const AuthArmor = new window.AuthArmorSDK({
+          endpointBasePath: "http://localhost:8000/auth/autharmor", // (Optional) Your backend URL goes here
+          polling: true,
+          publicKey:
+            "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjhiNzhkYTFmLWU4NWEtNDg4Ny05MmQxLTcyNWZlNTg3MGFiZCJ9.eyJrZXkiOiJudXRnYWo4aHRnNzQ2Y3pjd3dxbXhhN2ZrODR0OXNuaiIsImlhdCI6MTY0OTc3ODE4M30.Sb2jD9UqU87KiE5RigGK7t4MprMLZilRy-Dq39A1qAjpCZ0ta6HD1FmNNzUuXMEYkdQGUxdgRch6To4cXMNHRA",
+          webauthnClientId: "1bd515ee-c7d5-4e19-ba6e-348f9a785f19"
+        });
 
-      document
-        .querySelector(".submit-btn")
-        .addEventListener("click", async () => {
-          await AuthArmor.auth.authenticate({
-            // auth info goes here
-            nickname: document.querySelector(".nickname-input").value,
-            shortMessage: "Hello",
-            actionName: "Login1",
-            headers: {
-              RequestVerificationToken: "hello"
-            },
-            sendPush: true,
-            visualVerify: true
+        AuthArmor.form.mount(".form");
+
+        document.querySelector(".config-btn").addEventListener("click", () => {
+          document.querySelector(".sidenav").classList.toggle("active");
+        });
+
+        document
+          .querySelector(".sidenav-close")
+          .addEventListener("click", () => {
+            document.querySelector(".sidenav").classList.toggle("active");
+          });
+
+        document.querySelectorAll(".allowed-method").forEach(method => {
+          method.addEventListener("click", () => {
+            if (selectedMethods.includes(method.dataset.method)) {
+              selectedMethods = selectedMethods.filter(
+                selectedMethod => selectedMethod !== method.dataset.method
+              );
+              method.classList.remove("active");
+              AuthArmor.form.mount(".form", {
+                methods: selectedMethods
+              });
+              return;
+            }
+
+            selectedMethods = [...selectedMethods, method.dataset.method];
+            method.classList.add("active");
+            AuthArmor.form.mount(".form", {
+              methods: selectedMethods
+            });
           });
         });
+      })();
     </script>
   </body>
 </html>

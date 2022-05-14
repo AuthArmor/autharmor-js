@@ -16,6 +16,21 @@ module.exports = {
       {
         test: /\.(png|svg|jpg|jpeg|gif)$/i,
         type: "asset/inline"
+      },
+      {
+        test: /\.css$/i,
+        use: [
+          "style-loader",
+          {
+            loader: "css-loader",
+            options: {
+              modules: {
+                exportLocalsConvention: "camelCase",
+                localIdentName: "AuthArmor__[local]___[hash:base64:5]"
+              }
+            }
+          }
+        ]
       }
     ]
   },

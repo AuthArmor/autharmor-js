@@ -1,11 +1,15 @@
 import Axios, { Response } from "redaxios";
-// @ts-ignore
 import kjua from "kjua";
 import generateColor from "string-to-color";
+import styles from "./css/index.module.css";
 import config from "./config/index";
 import qrCode from "./assets/qr-code.svg";
 import logo from "./assets/logo.png";
 import closeIcon from "./assets/cancel.svg";
+import refreshIcon from "./assets/refresh.svg";
+import phoneIcon from "./assets/phone.svg";
+import emailIcon from "./assets/email.svg";
+import WebAuthnSDK from "autharmor-webauthn-sdk";
 
 type Events =
   | "authenticating"
@@ -19,6 +23,10 @@ type Events =
   | "inviteExists"
   | "inviteCancelled"
   | "error";
+
+type AuthTypes = "magiclink" | "push" | "usernameless" | "webauthn";
+
+type AuthMethods = "authenticator" | "magiclink" | "webauthn";
 
 type EventListener = (...data: any) => void | Promise<void>;
 
@@ -102,6 +110,30 @@ interface AuthenticateArgs {
   onFailure: (data: AuthenticateResponseFail) => any;
 }
 
+interface FormStyles {
+  accentColor: string;
+  backgroundColor: string;
+  tabColor: string;
+  activeTabColor: string;
+  qrCodeBackground: string;
+}
+
+interface FormMountOptions {
+  methods?: AuthMethods[];
+  styles?: Partial<FormStyles>;
+}
+
+const defaultOptions: FormMountOptions = {
+  methods: ["authenticator", "magiclink", "webauthn"],
+  styles: {
+    accentColor: "#0bdbdb",
+    backgroundColor: "#2a2d35",
+    activeTabColor: "#363a46",
+    tabColor: "#363a46",
+    qrCodeBackground: "#202020"
+  }
+};
+
 interface OnAuthResponse {
   authResponse: AuthenticateResponse;
   redirectedUrl?: string;
@@ -116,6 +148,10 @@ interface PollAuthRequest {
   onFailure: (data: AuthenticateResponseFail) => any;
 }
 
+interface DebugSettings {
+  url: string;
+}
+
 declare global {
   interface Window {
     AuthArmorSDK: any;
@@ -127,16 +163,51 @@ const $ = (selectors: string) => document.querySelector(selectors);
 
 class SDK {
   private url: string;
+  private publicKey?: string;
+  private webauthnClientId?: string;
+  private webauthn?: WebAuthnSDK;
   private events: Events[];
   private eventListeners: Map<Events, EventListener[]>;
   private socket: WebSocket | undefined;
+  private tickTimerId?: NodeJS.Timeout;
   private requestCompleted = false;
   private polling: boolean;
   private pollInterval = 500;
+  private expirationDate = Date.now();
+  private pollTimerId?: NodeJS.Timeout;
+  private QRAnimationTimer?: NodeJS.Timeout;
+  private hasCalledValidate = false;
+  private debug: DebugSettings = {
+    url: "https://auth.autharmor.dev"
+  };
 
-  constructor({ endpointBasePath = "", polling = false }) {
+  constructor({
+    endpointBasePath = "",
+    polling = false,
+    publicKey = "",
+    webauthnClientId = "",
+    debug = { url: "https://auth.autharmor.dev" }
+  }) {
     this.url = this.processUrl(endpointBasePath);
     this.polling = polling;
+
+    if (!publicKey) {
+      throw new Error("Please specify a valid public key!");
+    }
+
+    console.log(debug);
+
+    if (debug) {
+      this.debug = debug;
+    }
+
+    this.publicKey = publicKey;
+    this.webauthnClientId = webauthnClientId;
+    if (webauthnClientId) {
+      this.webauthn = new WebAuthnSDK({
+        webauthnClientId
+      });
+    }
     Axios.defaults.baseURL = this.url;
 
     // Supported events
@@ -154,16 +225,15 @@ class SDK {
       "error"
     ];
     this.eventListeners = new Map<Events, EventListener[]>(
-      // @ts-ignore
-      Object.entries(
-        this.events.reduce(
-          (eventListeners, eventName) => ({
+      (Object.entries(
+        this.events.reduce((eventListeners, eventName) => {
+          const listeners: EventListener[] = [];
+          return {
             ...eventListeners,
-            [eventName]: []
-          }),
-          {}
-        )
-      )
+            [eventName as Events]: listeners
+          };
+        }, {})
+      ) as unknown) as Iterable<readonly [Events, EventListener[]]>
     );
 
     window.AuthArmor = {};
@@ -223,23 +293,27 @@ class SDK {
   };
 
   private showPopup = (message = "Waiting for device", hideQRBtn?: boolean) => {
-    const popupOverlay = document.querySelector(".popup-overlay");
-    const authMessage = document.querySelector(".auth-message-text");
-    const showQRCodeBtn = document.querySelector(".show-popup-qrcode-btn");
-    const hideQRCodeBtn = document.querySelector(".hide-popup-qrcode-btn");
+    const popupOverlay = document.querySelector(`.${styles.popupOverlay}`);
+    const authMessage = document.querySelector(`.${styles.authMessageText}`);
+    const showQRCodeBtn = document.querySelector(
+      `.${styles.showPopupQrcodeBtn}`
+    );
+    const hideQRCodeBtn = document.querySelector(
+      `.${styles.hidePopupQrcodeBtn}`
+    );
 
     if (hideQRBtn) {
-      showQRCodeBtn?.classList.add("hidden");
-      hideQRCodeBtn?.classList.add("hidden");
+      showQRCodeBtn?.classList.add(styles.hidden);
+      hideQRCodeBtn?.classList.add(styles.hidden);
     }
 
     if (!hideQRBtn) {
-      showQRCodeBtn?.classList.remove("hidden");
-      hideQRCodeBtn?.classList.add("hidden");
+      showQRCodeBtn?.classList.remove(styles.hidden);
+      hideQRCodeBtn?.classList.add(styles.hidden);
     }
 
     if (popupOverlay) {
-      popupOverlay.classList.remove("hidden");
+      popupOverlay.classList.remove(styles.hidden);
     }
 
     if (authMessage) {
@@ -251,22 +325,26 @@ class SDK {
 
   private hidePopup = (delay = 2000) => {
     setTimeout(() => {
-      const authMessage = document.querySelector(".auth-message");
-      const authMessageText = document.querySelector(".auth-message-text");
-      const popupOverlay = document.querySelector(".popup-overlay");
-      const visualVerifyElement = $(".visual-verify-icon") as HTMLDivElement;
+      const authMessage = document.querySelector(`.${styles.authMessage}`);
+      const authMessageText = document.querySelector(
+        `.${styles.authMessageText}`
+      );
+      const popupOverlay = document.querySelector(`.${styles.popupOverlay}`);
+      const visualVerifyElement = $(
+        `.${styles.visualVerifyIcon}`
+      ) as HTMLDivElement;
 
       if (popupOverlay) {
-        popupOverlay.classList.add("hidden");
+        popupOverlay.classList.add(styles.hidden);
       }
 
       if (visualVerifyElement) {
-        visualVerifyElement.classList.add("hidden");
+        visualVerifyElement.classList.add(styles.hidden);
         visualVerifyElement.textContent = "";
       }
 
       if (authMessage) {
-        authMessage.setAttribute("class", "auth-message");
+        authMessage.setAttribute("class", styles.authMessage);
         this.executeEvent("popupOverlayClosed");
         setTimeout(() => {
           if (authMessageText) {
@@ -278,365 +356,124 @@ class SDK {
   };
 
   private updateMessage = (message: string, status = "success") => {
-    const authMessage = document.querySelector(".auth-message");
-    const authMessageText = document.querySelector(".auth-message-text");
+    const authMessage = document.querySelector(`.${styles.authMessage}`);
+    const authMessageText = document.querySelector(
+      `.${styles.authMessageText}`
+    );
     if (authMessage && authMessageText) {
-      authMessage.classList.add(`autharmor--${status}`);
+      authMessage.classList.add(styles[`autharmor--${status}`]);
       authMessageText.textContent = message;
     }
   };
 
-  private executeEvent = (eventName: Events, ...data: any[]) => {
+  private executeEvent = (eventName: Events, ...data: unknown[]) => {
     this.ensureEventExists(eventName);
 
     const listeners = this.eventListeners.get(eventName);
     listeners?.map(listener => listener(...data));
   };
 
+  private showPopupQRCode = () => {
+    const showPopupQrBtn = $(`.${styles.showPopupQrcodeBtn}`);
+    const hidePopupQrBtn = $(`.${styles.hidePopupQrcodeBtn}`);
+    const authMessage = $(`.${styles.authMessage}`);
+    const qrCodeContainer = $(`.${styles.qrCodeImgContainer}`);
+    const autharmorIcon = $(`.${styles.autharmorIcon}`);
+    const pushNotice = $(`.${styles.pushNotice}`);
+
+    if (this.QRAnimationTimer) {
+      clearTimeout(this.QRAnimationTimer);
+    }
+
+    showPopupQrBtn?.classList.add(styles.hidden);
+    autharmorIcon?.classList.add(styles.hidden);
+    this.QRAnimationTimer = setTimeout(() => {
+      qrCodeContainer?.classList.remove(styles.hidden);
+      hidePopupQrBtn?.classList.remove(styles.hidden);
+      authMessage?.classList.add(styles.rounded);
+      pushNotice?.classList.add(styles.hidden);
+    }, 200);
+  };
+
+  private hidePopupQRCode = () => {
+    const showPopupQrBtn = $(`.${styles.showPopupQrcodeBtn}`);
+    const hidePopupQrBtn = $(`.${styles.hidePopupQrcodeBtn}`);
+    const authMessage = $(`.${styles.authMessage}`);
+    const qrCodeContainer = $(`.${styles.qrCodeImgContainer}`);
+    const autharmorIcon = $(`.${styles.autharmorIcon}`);
+    const pushNotice = $(`.${styles.pushNotice}`);
+
+    if (this.QRAnimationTimer) {
+      clearTimeout(this.QRAnimationTimer);
+    }
+
+    hidePopupQrBtn?.classList.add(styles.hidden);
+    qrCodeContainer?.classList.add(styles.hidden);
+    this.QRAnimationTimer = setTimeout(() => {
+      autharmorIcon?.classList.remove(styles.hidden);
+      showPopupQrBtn?.classList.remove(styles.hidden);
+      authMessage?.classList.remove(styles.rounded);
+      pushNotice?.classList.remove(styles.hidden);
+    }, 200);
+  };
+
   private init({ polling = false }) {
     document.body.innerHTML += `
-      <style>
-        .autharmor--danger {
-          background-color: #f55050 !important;
-        }
-
-        .autharmor--warn {
-          background-color: #ff8d18 !important;
-        }
-
-        .popup-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          background-color: rgba(53, 57, 64, 0.98);
-          z-index: 100;
-          opacity: 1;
-          visibility: visible;
-          transition: all .2s ease;
-        }
-
-        .popup-overlay * {
-          box-sizing: border-box;
-        }
-
-        .close-popup-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: absolute;
-          top: -15px;
-          right: -15px;
-          width: 35px;
-          height: 35px;
-          border-radius: 100px;
-          background-color: #545d6d;
-          /* transform: translate(-50%, -50%); */
-          cursor: pointer;
-        }
-
-        .close-popup-btn img {
-          width: 15px;
-        }
-
-        .close-popup-btn:hover {
-          background-color: #d23b3b;
-        }
-        
-        .popup-overlay-content {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          border-radius: 15px;
-          box-shadow: 0px 20px 50px rgba(0, 0, 0, 0.15);
-          background-color: #2b313c;
-          width: 90%;
-          max-width: 480px;
-          min-width: 300px;
-        }
-
-        .hide-popup-qrcode-btn {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: absolute;
-          right: 20px;
-          top: 15px;
-          padding: 6px 10px;
-          border-radius: 100px;
-          background-color: transparent;
-          cursor: pointer;
-          transition: all .2s ease;
-        }
-
-        .hide-popup-qrcode-btn:hover {
-          background-color: rgba(255,255,255,0.1);
-        }
-
-        .hide-popup-qrcode-btn img {
-          margin-right: 6px;
-          height: 20px;
-        }
-
-        .show-popup-qrcode-btn {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          width: 100%;
-          background-color: rgba(255,255,255,0.2);
-          padding: 0 7px;
-          height: 35px;
-          color: rgba(255,255,255,0.7);
-          font-size: 12px;
-          border-radius: 0 0 15px 15px;
-          cursor: pointer;
-          transition: all .2s ease;
-        }
-
-        .show-popup-qrcode-btn:hover {
-          color: rgba(255,255,255,1);
-        }
-
-        .show-popup-qrcode-btn.hidden {
-          height: 0;
-          color: transparent;
-        }
-
-        .qrcode-btn-text {
-          margin: 0;
-          font-family: "Montserrat", sans-serif;
-        }
-
-        .popup-qrcode-btn-text {
-          margin: 0;
-          font-size: 12px;
-          font-family: 'Montserrat', 'Helvetica Neue', 'Roboto', 'Arial', sans-serif;
-          color: white;
-          opacity: 0.8;
-          font-weight: bold;
-        }
-
-        .popup-content-container {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-direction: column;
-          width: 100%;
-          height: 100%;
-        }
-
-        .qr-code-img-container {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: scale(1) translate(-50%, -50%);
-          transform-origin: top left;
-          pointer-events: none;
-          transition: all .3s ease;
-        }
-
-        img.qr-code-img {
-          height: 130px;
-          margin-bottom: 10px;
-        }
-
-        .qr-code-img-desc {
-          font-size: 12px;
-          font-family: 'Montserrat', 'Helvetica Neue', 'Roboto', 'Arial', sans-serif;
-          font-weight: bold;
-          margin: 0;
-          color: white;
-          opacity: 0.8;
-          margin-bottom: -10px;
-          text-align: center;
-        }
-        
-        .popup-overlay .autharmor-icon {
-          position: relative;
-          height: 130px;
-          margin-bottom: 40px;
-          margin-top: 40px;
-          pointer-events: none;
-          transition: all .3s ease;
-          z-index: 2;
-        }
-        
-        .popup-overlay .auth-message {
-          display: flex;
-          align-items: baseline;
-          justify-content: center;
-          margin: 0;
-          font-weight: bold;
-          color: white;
-          font-size: 18px;
-          padding: 14px 30px;
-          border-radius: 0;
-          background-color: #2cb2b5;
-          width: 100%;
-          text-align: center;
-          font-family: 'Montserrat', 'Helvetica Neue', 'Roboto', 'Arial', sans-serif;
-          transition: all .2s ease;
-        }
-
-        .popup-overlay .auth-message.rounded {
-          border-radius: 0 0 10px 10px;
-        }
-
-        .hidden {
-          opacity: 0;
-          visibility: hidden;
-          pointer-events: none;
-        }
-
-        .qr-code-img-container.hidden {
-          transform: scale(0) translate(-50%, -50%);
-          opacity: 0;
-          visibility: hidden;
-        }
-
-        .autharmor-icon.hidden {
-          transform: scale(0.3) translateY(calc(-100% + 38px));
-          /* filter: grayscale(1); */
-          opacity: 1;
-          visibility: visible;
-        }
-
-        p.push-notice {
-          margin: 0;
-          font-size: 14px;
-          font-family: "Montserrat", sans-serif;
-          color: #ffffffa8;
-          margin-top: 12px;
-          transition: all .2s ease;
-        }
-
-        .pulse {
-            display: block;
-            width: 10px;
-            height: 10px;
-            margin-left: 14px;
-            border-radius: 50%;
-            background: #ffffff61;
-            cursor: pointer;
-            box-shadow: 0 0 0 rgba(255,255,255,.4);
-            animation: pulse 2s infinite;
-        }
-
-        .visual-verify-icon {
-          position: absolute;
-          top: 15px;
-          left: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 35px;
-          height: 35px;
-          color: white;
-          font-weight: bold;
-          font-family: Poppins, Montserrat, sans-serif;
-          background-color: #404040;
-          font-size: 14px;
-          border-radius: 100px;
-          transition: all .2s ease;
-        }
-
-        @keyframes pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(255,255,255,.4)
-            }
-
-            70% {
-                box-shadow: 0 0 0 10px rgba(255,255,255,0)
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(255,255,255,0)
-            }
-        }
-      </style>
-      <div class="popup-overlay hidden">
-        <div class="popup-overlay-content">
-          <div class="popup-content-container">
-            <div class="close-popup-btn">
+      <div class="${styles.popupOverlay} ${styles.hidden}">
+        <div class="${styles.popupOverlayContent}">
+          <div class="${styles.popupContentContainer}">
+            <div class="${styles.closePopupBtn}">
               <img src="${closeIcon}" alt="Close Popup Button" />
             </div>
-            <div class="hide-popup-qrcode-btn hidden">
+            <div class="${styles.hidePopupQrcodeBtn} ${styles.hidden}">
               <img src="${qrCode}" alt="QR Code Button" />
-              <p class="popup-qrcode-btn-text">Hide QR Code</p>
+              <p class="${styles.popupQrcodeBtnText}">Hide QR Code</p>
             </div>
-            <div class="visual-verify-icon hidden"></div>
-            <p class="push-notice">We've sent a push message to your device(s)</p>
-            <img src="${logo}" alt="AuthArmor Icon" class="autharmor-icon" />
-            <div class="qr-code-img-container hidden">
-              <img src="" alt="QR Code" class="qr-code-img" />
-              <p class="qr-code-img-desc">Please scan the code with the AuthArmor app</p>
+            <div class="${styles.visualVerifyIcon} ${styles.hidden}"></div>
+            <p class="${styles.pushNotice}">We've sent a push message to your device(s)</p>
+            <img src="${logo}" alt="AuthArmor Icon" class="${styles.autharmorIcon}" />
+            <div class="${styles.qrCodeImgContainer} ${styles.hidden}">
+              <img src="" alt="QR Code" class="${styles.qrCodeImg}" />
+              <p class="${styles.qrCodeImgDesc}">Please scan the code with the AuthArmor app</p>
             </div>
           </div>
-          <div class="auth-message"><span class="auth-message-text">Authenticating with AuthArmor...</span><span class="pulse"></span></div>
-          <div class="show-popup-qrcode-btn">
-            <p class="qrcode-btn-text">Didn't get the push notification? Click here to scan a QR code instead</p>
+          <div class="${styles.authMessage}"><span class="${styles.authMessageText}">Authenticating with AuthArmor...</span><span class="${styles.pulse}"></span></div>
+          <div class="${styles.showPopupQrcodeBtn}">
+            <p class="${styles.qrcodeBtnText}">Didn't get the push notification? Click here to scan a QR code instead</p>
           </div>
         </div>
       </div>
     `;
 
-    const popup = $(".popup-overlay");
-    const showPopupBtn = $(".show-popup-qrcode-btn");
-    const hidePopupBtn = $(".hide-popup-qrcode-btn");
-    const authMessage = $(".auth-message");
-    const qrCodeContainer = $(".qr-code-img-container");
-    const autharmorIcon = $(".autharmor-icon");
-    const pushNotice = $(".push-notice");
-    const closePopupBtn = $(".close-popup-btn");
+    const popup = $(`.${styles.popupOverlay}`);
+    const showPopupQrBtn = $(`.${styles.showPopupQrcodeBtn}`);
+    const hidePopupQrBtn = $(`.${styles.hidePopupQrcodeBtn}`);
+    const qrCodeContainer = $(`.${styles.qrCodeImgContainer}`);
+    const autharmorIcon = $(`.${styles.autharmorIcon}`);
+    const closePopupBtn = $(`.${styles.closePopupBtn}`);
     let timer: NodeJS.Timeout;
 
-    showPopupBtn?.addEventListener("click", () => {
-      clearTimeout(timer);
-      showPopupBtn?.classList.add("hidden");
-      autharmorIcon?.classList.add("hidden");
-      timer = setTimeout(() => {
-        qrCodeContainer?.classList.remove("hidden");
-        hidePopupBtn?.classList.remove("hidden");
-        authMessage?.classList.add("rounded");
-        pushNotice?.classList.add("hidden");
-      }, 200);
-    });
+    showPopupQrBtn?.addEventListener("click", this.showPopupQRCode);
 
-    hidePopupBtn?.addEventListener("click", () => {
-      clearTimeout(timer);
-      hidePopupBtn?.classList.add("hidden");
-      qrCodeContainer?.classList.add("hidden");
-      timer = setTimeout(() => {
-        autharmorIcon?.classList.remove("hidden");
-        showPopupBtn?.classList.remove("hidden");
-        authMessage?.classList.remove("rounded");
-        pushNotice?.classList.remove("hidden");
-      }, 200);
-    });
+    hidePopupQrBtn?.addEventListener("click", this.hidePopupQRCode);
 
     closePopupBtn?.addEventListener("click", () => {
       clearTimeout(timer);
-      popup?.classList.add("hidden");
-      hidePopupBtn?.classList.add("hidden");
-      qrCodeContainer?.classList.add("hidden");
-      autharmorIcon?.classList.remove("hidden");
-      showPopupBtn?.classList.remove("hidden");
+      popup?.classList.add(styles.hidden);
+      hidePopupQrBtn?.classList.add(styles.hidden);
+      qrCodeContainer?.classList.add(styles.hidden);
+      autharmorIcon?.classList.remove(styles.hidden);
+      showPopupQrBtn?.classList.remove(styles.hidden);
+      document
+        .querySelector(`.${styles.loadingOverlay}`)
+        ?.classList.add(styles.hidden);
 
-      const visualVerifyElement = $(".visual-verify-icon") as HTMLDivElement;
+      const visualVerifyElement = $(
+        `.${styles.visualVerifyIcon}`
+      ) as HTMLDivElement;
 
       if (visualVerifyElement) {
-        visualVerifyElement.classList.add("hidden");
+        visualVerifyElement.classList.add(styles.hidden);
         visualVerifyElement.textContent = "";
       }
     });
@@ -667,7 +504,7 @@ class SDK {
         if (message.origin === config.inviteURL) {
           return;
         }
-        
+
         const parsedMessage = JSON.parse(message.data);
 
         if (parsedMessage.type === "requestAccepted") {
@@ -711,18 +548,840 @@ class SDK {
     };
   }
 
-  // ---- Public Methods
+  private selectTab = (event: MouseEvent, tabName = ""): void => {
+    const tabContent = document.getElementsByClassName(
+      styles.tabContent
+    ) as HTMLCollectionOf<HTMLDivElement>;
+    for (let i = 0; i < tabContent.length; i++) {
+      tabContent[i].style.display = "none";
+    }
+
+    const tabs = document.getElementsByClassName(
+      styles.tab
+    ) as HTMLCollectionOf<HTMLDivElement>;
+    for (let i = 0; i < tabs.length; i++) {
+      tabs[i].classList.remove(styles.activeTab);
+    }
+
+    const tab = document.getElementById(tabName);
+
+    if (tab) {
+      tab.style.display = "block";
+    }
+
+    if (event.target) {
+      const target = event.target as HTMLDivElement;
+      target.classList.add(styles.activeTab);
+    }
+  };
+
+  private closeModal = () => {
+    const modal = document.querySelector(`.${styles.modal}`);
+
+    if (modal) {
+      modal.classList.add(styles.hidden);
+    }
+  };
+
+  private padTime = (seconds: number) => {
+    if (seconds < 10) {
+      return "0" + seconds;
+    }
+
+    return seconds;
+  };
+
+  private tickTimer = () => {
+    const timeLeft = this.expirationDate - Date.now();
+    const timeLeftDate = new Date(timeLeft);
+    const timer = document.querySelector(`.${styles.timer}`);
+
+    if (timeLeft <= 0 && timer) {
+      timer.textContent = "00:00";
+      return null;
+    }
+
+    const minutes = timeLeftDate.getMinutes();
+    const seconds = timeLeftDate.getSeconds();
+
+    if (timer) {
+      timer.textContent = `${this.padTime(minutes)}:${this.padTime(seconds)}`;
+    }
+
+    this.tickTimerId = setTimeout(() => {
+      this.tickTimer();
+    }, 1000);
+  };
+
+  private getEnrollmentStatus = async ({
+    id = "",
+    expirationDate = new Date(),
+    pollDuration = 2000
+  } = {}): Promise<void> => {
+    const body = await fetch(
+      `${this.debug.url}/api/v3/users/${id}/autharmorauthenticatorenrollmentstatus?apikey=${this.publicKey}`,
+      {
+        method: "POST"
+      }
+    ).then(response => response.json());
+
+    if (
+      body.enrollment_status === "not_enrolled_or_not_found" &&
+      new Date(expirationDate).getTime() <= Date.now()
+    ) {
+      document
+        .querySelector(`.${styles.qrCodeTimeout}`)!
+        .classList.remove(styles.hidden);
+      this.hasCalledValidate = true;
+      this.executeEvent("error", body);
+      return;
+    }
+
+    if (
+      pollDuration &&
+      body.enrollment_status === "not_enrolled_or_not_found"
+    ) {
+      this.pollTimerId = setTimeout(() => {
+        this.getEnrollmentStatus({ id, pollDuration });
+      }, pollDuration);
+      return;
+    }
+
+    console.log(
+      body,
+      body?.auth_response_message === "Timeout",
+      this.hasCalledValidate
+    );
+
+    if (
+      body.enrollment_status !== "not_enrolled_or_not_found" &&
+      !this.hasCalledValidate
+    ) {
+      // TODO: Do something on success
+      this.executeEvent("authenticated", {
+        ...body,
+        auth_request_id: body.auth_request_id
+      });
+    }
+
+    if (this.pollTimerId) {
+      clearTimeout(this.pollTimerId);
+    }
+
+    this.hasCalledValidate = true;
+  };
+
+  private getRequestStatus = async ({
+    id = "",
+    pollDuration = 2000
+  } = {}): Promise<void> => {
+    const body = await fetch(
+      `${this.debug.url}/api/v3/auth/request/status/${id}?apikey=${this.publicKey}`,
+      {
+        method: "GET"
+      }
+    ).then(response => response.json());
+
+    if (pollDuration && !body?.auth_response_message) {
+      this.pollTimerId = setTimeout(() => {
+        this.getRequestStatus({ id, pollDuration });
+      }, pollDuration);
+      return;
+    }
+
+    console.log(
+      body,
+      body?.auth_response_message === "Timeout",
+      this.hasCalledValidate
+    );
+
+    if (body?.auth_response_message === "Success" && !this.hasCalledValidate) {
+      // TODO: Do something on success
+      this.executeEvent("authenticated", body);
+    }
+
+    if (body?.auth_response_message === "Timeout" && !this.hasCalledValidate) {
+      document
+        .querySelector(`.${styles.qrCodeTimeout}`)!
+        .classList.remove(styles.hidden);
+    }
+
+    if (this.pollTimerId) {
+      clearTimeout(this.pollTimerId);
+    }
+    this.hasCalledValidate = true;
+  };
+
+  registerAuthenticator = async (username: string) => {
+    const timeoutSeconds = 120;
+    // TODO: Customize auth payload
+    const payload = {
+      action_name: "Login",
+      username,
+      short_msg: "Login pending - please authorize",
+      timeout_in_seconds: timeoutSeconds,
+      origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
+      redirect_url: "http://localhost:3000/magic-register"
+    };
+
+    this.showPopupQRCode();
+    this.showPopup("Please scan the QR Code with your phone", true);
+
+    const response = await fetch(
+      `${this.debug.url}/api/v3/users/register/authenticator/start?apikey=${this.publicKey}`,
+      {
+        headers: {
+          "Content-Type": "application/json"
+        },
+        method: "POST",
+        body: JSON.stringify(payload)
+      }
+    );
+
+    const body = await response.json();
+
+    console.log(body);
+
+    this.getEnrollmentStatus({
+      id: body.user_id,
+      pollDuration: 2000
+    });
+  };
+
+  registerMagicLink = async (username: string): Promise<void> => {
+    const timeoutSeconds = 120;
+    // TODO: Customize auth payload
+    const payload = {
+      action_name: "Login",
+      email_address: username,
+      short_msg: "Login pending - please authorize",
+      timeout_in_seconds: timeoutSeconds,
+      origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
+      redirect_url: "http://localhost:3000/magic-register"
+    };
+
+    const response = await fetch(
+      `${this.debug.url}/api/v3/users/register/magiclink/start?apikey=${this.publicKey}`,
+      {
+        headers: {
+          "Content-Type": "application/json"
+        },
+        method: "POST",
+        body: JSON.stringify(payload)
+      }
+    );
+
+    const body = await response.json();
+
+    console.log(body);
+  };
+
+  registerWebAuthn = async (username: string): Promise<void> => {
+    const pushNotice = document.querySelector(`.${styles.pushNotice}`);
+    const qrCodeBtn = document.querySelector(`.${styles.qrcodeBtnText}`);
+
+    if (!pushNotice || !qrCodeBtn) {
+      throw new Error("DOM was unexpectedly modified");
+    }
+
+    if (!this.webauthnClientId) {
+      throw new Error(
+        "Please specify a valid webauthnClientId before attempting to register using webauthn"
+      );
+    }
+
+    pushNotice.textContent = "Attestation in progress";
+    qrCodeBtn.textContent = "Click here to scan a QR code instead";
+    this.showPopup("Authenticating with WebAuthn");
+
+    try {
+      // TODO: Customize auth payload
+      const payload = {
+        username,
+        webauthn_client_id: this.webauthnClientId
+      };
+
+      const start = await fetch(
+        `${this.debug.url}/api/v3/users/register/webauthn/start?apikey=${this.publicKey}`,
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+          method: "POST",
+          body: JSON.stringify(payload)
+        }
+      ).then(response => response.json());
+
+      const parsedResponse = await this.webauthn?.create(start);
+
+      const finish = await fetch(
+        `${this.debug.url}/api/v3/users/register/webauthn/finish?apikey=${this.publicKey}`,
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+          method: "POST",
+          body: JSON.stringify(parsedResponse)
+        }
+      );
+
+      const finishBody = await finish.json();
+
+      if (finish.status >= 400) {
+        throw new Error(finishBody?.errorMessage);
+      }
+
+      this.updateMessage("Authenticated successfully!", "success");
+      this.hidePopup(2000);
+    } catch (err) {
+      this.updateMessage(err.message, "danger");
+      this.hidePopup(2000);
+    }
+  };
+
+  loginWebAuthn = async (username: string): Promise<void> => {
+    const pushNotice = document.querySelector(`.${styles.pushNotice}`);
+    const qrCodeBtn = document.querySelector(`.${styles.qrcodeBtnText}`);
+
+    if (!pushNotice || !qrCodeBtn) {
+      throw new Error("DOM was unexpectedly modified");
+    }
+
+    pushNotice.textContent = "Attestation in progress";
+    qrCodeBtn.textContent = "Click here to scan a QR code instead";
+    this.showPopup("Authenticating with WebAuthn");
+
+    try {
+      // TODO: Customize auth payload
+      const payload = {
+        username,
+        webauthn_client_id: this.webauthnClientId
+      };
+
+      const start = await fetch(
+        `${this.debug.url}/api/v3/auth/request/webauthn/start?apikey=${this.publicKey}`,
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+          method: "POST",
+          body: JSON.stringify(payload)
+        }
+      ).then(response => response.json());
+
+      const parsedResponse = await this.webauthn?.get(start);
+
+      const finish = await fetch(
+        `${this.debug.url}/api/v3/auth/request/webauthn/finish?apikey=${this.publicKey}`,
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+          method: "POST",
+          body: JSON.stringify(parsedResponse)
+        }
+      );
+
+      const finishBody = await finish.json();
+
+      if (finish.status >= 400) {
+        throw new Error(finishBody?.errorMessage);
+      }
+
+      this.updateMessage("Authenticated successfully!", "success");
+      this.hidePopup(2000);
+    } catch (err) {
+      this.updateMessage(err.message, "danger");
+      this.hidePopup(2000);
+    }
+  };
+
+  // Authentication
+  requestAuth = async (type: AuthTypes, username?: string): Promise<void> => {
+    document
+      .querySelector(`.${styles.loadingOverlay}`)!
+      .classList.remove(styles.hidden);
+    this.hasCalledValidate = false;
+
+    const timeoutSeconds = 30;
+    // TODO: Customize auth payload
+    const payload = {
+      action_name: "Login",
+      username,
+      short_msg: "Login pending - please authorize",
+      timeout_in_seconds: timeoutSeconds,
+      origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
+      redirect_url:
+        type === "magiclink" ? "http://localhost:3000/magic-login" : null,
+      send_push: type === "push"
+    };
+
+    document
+      .querySelector(`#login .${styles.inputContainer}`)!
+      .classList.remove(styles.invalid);
+    document
+      .querySelector(`.${styles.qrCodeTimeout}`)
+      ?.classList.add(styles.hidden);
+
+    const response = await fetch(
+      `${this.debug.url}/api/v3/auth/request/${
+        type === "magiclink" ? type : "authenticator"
+      }/start?apikey=${this.publicKey}`,
+      {
+        headers: {
+          "Content-Type": "application/json"
+        },
+        method: "POST",
+        body: JSON.stringify(payload)
+      }
+    );
+    const body = await response.json();
+
+    if (response.status >= 400) {
+      const errorMessage = body.errorMessage || "An unknown error has occurred";
+      document
+        .querySelector(`.${styles.loadingOverlay}`)!
+        .classList.add(styles.hidden);
+      document
+        .querySelector(`#login .${styles.inputContainer}`)!
+        .classList.add(styles.invalid);
+      document.querySelector(
+        `#login .${styles.inputErrorMessage}`
+      )!.textContent = errorMessage;
+      this.updateMessage(errorMessage, "danger");
+      this.hidePopup();
+      return;
+    }
+
+    const qrCode = kjua({
+      text: body.qr_code_data.replace("autharmor.com", "autharmor.dev"),
+      rounded: 10,
+      back: "#202020",
+      fill: "#2cb2b5"
+    });
+    const popupQRCode = document.querySelector(`.${styles.qrCodeImg}`);
+    popupQRCode?.classList.remove(styles.hidden);
+    popupQRCode?.setAttribute("src", qrCode.src);
+
+    if (type === "usernameless") {
+      const qrCodeImg = document.querySelector(
+        `.${styles.usernamelessQrImg}`
+      ) as HTMLImageElement;
+      qrCodeImg.setAttribute("src", qrCode.src);
+
+      this.expirationDate = Date.now() + body.timeout_in_seconds * 1000;
+      if (this.tickTimerId) {
+        clearTimeout(this.tickTimerId);
+      }
+      this.tickTimer();
+    }
+
+    if (this.pollTimerId) {
+      clearTimeout(this.pollTimerId);
+    }
+    this.getRequestStatus({
+      id: body.auth_request_id,
+      pollDuration: 1000
+    });
+    document
+      .querySelector(`.${styles.loadingOverlay}`)!
+      .classList.add(styles.hidden);
+  };
+
+  private selectAuthMethod = (type: AuthTypes): void => {
+    const pushNotice = document.querySelector(`.${styles.pushNotice}`);
+    const qrCodeBtn = document.querySelector(`.${styles.qrcodeBtnText}`);
+    const email = document.querySelector(
+      `.${styles.email}`
+    ) as HTMLInputElement;
+
+    console.log("Selecting Auth method...", type);
+
+    if (!pushNotice || !qrCodeBtn) {
+      throw new Error("DOM was unexpectedly modified");
+    }
+
+    if (type === "push") {
+      pushNotice.textContent = "We've sent a push message to your device(s)";
+      qrCodeBtn.textContent =
+        "Didn't get the push notification? Click here to scan a QR code instead";
+    }
+
+    if (type === "magiclink") {
+      pushNotice.textContent = "We've sent a magic link to your email";
+      qrCodeBtn.textContent =
+        "Didn't get the magic link? Click here to scan a QR code instead";
+      this.showPopup("Please check your email");
+    }
+
+    if (type === "webauthn") {
+      pushNotice.textContent = "Assertion in progress";
+      qrCodeBtn.textContent = "Click here to scan a QR code instead";
+      document.querySelector(`.${styles.modal}`)!.classList.add(styles.hidden);
+      this.showPopup("Please complete assertion");
+      this.loginWebAuthn(email.value);
+      return;
+    }
+
+    if (type === "push") {
+      this.showPopup();
+    }
+
+    document.querySelector(`.${styles.modal}`)!.classList.add(styles.hidden);
+
+    this.requestAuth(type, email.value);
+  };
+
+  mount = (selector = "", options: FormMountOptions = defaultOptions): void => {
+    const element = document.querySelector(selector);
+
+    if (!element) {
+      throw new Error(
+        "Please specify a valid element (example: `.form` or `#login-form`)"
+      );
+    }
+
+    const authenticatorEnabled =
+      !options.methods || options.methods?.includes("authenticator");
+
+    element.innerHTML = `
+      <div class="${styles.container}">
+        <div class="${styles.content}">
+          <div class="${styles.loadingOverlay} ${styles.hidden}">
+            <div class="${styles.ldsRing}">
+              <div></div>
+              <div></div>
+              <div></div>
+              <div></div>
+            </div>
+          </div>
+          <div class="${styles.tabs}">
+            <div class="${styles.tab} ${styles.activeTab}" data-tab="login">
+              Login
+            </div>
+            <div class="${styles.tab}" data-tab="register">Register</div>
+          </div>
+          <div
+            id="login"
+            class="${styles.tabContent}" 
+            style="display: block; ${
+              !authenticatorEnabled ? "min-height: 164px;" : ""
+            }">
+            <div class="${styles.infoContainer}">
+              ${
+                authenticatorEnabled
+                  ? `
+                    <p class="${styles.headerText}">
+                      Sign in using the Auth Armor Authenticator app
+                    </p>
+                    <div class="${styles.qrCode}">
+                      <img src="" alt="" class="${styles.usernamelessQrImg}">
+                      <div class="${styles.qrCodeTimeout} ${styles.hidden}">
+                        <div class="${styles.timeoutHead}">Code timed out!</div>
+                        <div class="${styles.timeoutBtn}">Refresh Code</div>
+                      </div>
+                    </div>
+                    <p class="${styles.desc}">Scan this QR code using the app to sign in</p>
+                    <div class="${styles.timerContainer}">
+                      <p class="${styles.timer}">00:43</p>
+                      <div class="${styles.refresh}">
+                        <img src="${refreshIcon}" alt="refresh-btn" />
+                      </div>
+                    </div>
+                    <div class="${styles.separator}">
+                      <p>OR</p>
+                    </div>
+                  `
+                  : ""
+              }
+              <p class="${styles.headerText}">
+                Sign in with your username
+              </p>
+              <div class="${styles.inputContainer}">
+                  <input
+                    class="${styles.email} ${styles.loginEmail}" 
+                    type="text" 
+                    placeholder="Username"
+                  />
+                  <div class="${styles.inputErrorMessage}">
+                    An unknown error has occurred
+                  </div>
+              </div>
+            </div>
+            <div
+              class="${styles.btn} ${
+      options.methods?.includes("webauthn") ? "" : styles.disabled
+    }"
+              data-btn="login">
+              <p>Login</p>
+            </div>
+          </div>
+          <form
+            id="register"
+            class="${styles.tabContent}" 
+            style="${!authenticatorEnabled ? "min-height: 164px;" : ""}">
+            <div class="${styles.infoContainer}">
+              <p class="${styles.headerText}">
+                Sign up with your username
+              </p>
+              <div class="${styles.inputContainer}">
+                <input 
+                  class="${styles.email}" 
+                  type="text" 
+                  placeholder="Username"
+                />
+                <div class="${styles.inputErrorMessage}">
+                  An unknown error has occurred
+                </div>
+              </div>
+            </div>
+            <div class="${styles.btn} ${styles.disabled}" data-btn="register">
+              <p>Register</p>
+            </button>
+          </form>
+        </div>
+      </div>
+      <div class="${styles.modal} ${styles.hidden}">
+        <div class="${styles.modalBackground}"></div>
+        <div class="${styles.modalContainer}">
+          <p class="${styles.modalHeader}">Pick your auth method</p>
+          <div class="${styles.cards}">
+            ${
+              !options.methods || options.methods?.includes("authenticator")
+                ? `
+                  <div class="${
+                    styles.card
+                  }" data-card="push" style="width: calc((100% / ${options
+                    .methods?.length ?? 3}) - 15px)">
+                    <div class="${styles.icon}">
+                      <img src="${phoneIcon}" alt="icon" />
+                    </div>
+                    <p class="${styles.title}">Push Authentication</p>
+                    <p class="${styles.text}">
+                      Send me a push message to my Auth Armor authenticator to login
+                    </p>
+                  </div>
+                  `
+                : ""
+            }
+
+            ${
+              !options.methods || options.methods.includes("magiclink")
+                ? `
+                  <div class="${styles.card} ${
+                    styles.email
+                  }" data-card="magiclink" style="width: calc((100% / ${options
+                    .methods?.length ?? 3}) - 15px)">
+                    <div class="${styles.icon}">
+                      <img src="${emailIcon}" alt="icon" />
+                    </div>
+                    <p class="${styles.title}">Magic Link Login Email</p>
+                    <p class="${styles.text}">
+                      Send me a magic link email to login
+                    </p>
+                  </div>`
+                : ""
+            }
+
+            ${
+              !options.methods || options.methods.includes("webauthn")
+                ? `
+                  <div class="${
+                    styles.card
+                  }" data-card="webauthn" style="width: calc((100% / ${options
+                    .methods?.length ?? 3}) - 15px)">
+                    <div class="${styles.icon}">
+                      <img src="${emailIcon}" alt="icon" />
+                    </div>
+                    <p class="${styles.title}">WebAuthn</p>
+                    <p class="${styles.text}">
+                      Login using WebAuthn
+                    </p>
+                  </div>`
+                : ""
+            }
+          </div>
+          <p class="${styles.another}">Choose another method</p>
+        </div>
+      </div>
+    `;
+
+    const tabs = document.querySelectorAll(`.${styles.tab}`) as NodeListOf<
+      HTMLDivElement
+    >;
+    const btns = document.querySelectorAll(`.${styles.btn}`) as NodeListOf<
+      HTMLDivElement
+    >;
+    const cards = document.querySelectorAll(`.${styles.card}`) as NodeListOf<
+      HTMLDivElement
+    >;
+    const modalBg = document.querySelector(
+      `.${styles.modalBackground}`
+    ) as HTMLDivElement;
+
+    tabs.forEach(tab => {
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      const self = this;
+      tab.addEventListener("click", function(e) {
+        self.selectTab(e, this.dataset.tab);
+      });
+    });
+
+    btns.forEach(btn => {
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      const self = this;
+      btn.addEventListener("click", function() {
+        const modal = document.querySelector(
+          `.${styles.modal}`
+        ) as HTMLDivElement;
+        const loginUsername = document.querySelector(
+          `#login .${styles.email}`
+        ) as HTMLInputElement;
+        const registerUsername = document.querySelector(
+          `#register .${styles.email}`
+        ) as HTMLInputElement;
+
+        if (this.dataset.btn === "login") {
+          if (options.methods?.length === 1) {
+            const [method] = options.methods;
+            self.selectAuthMethod(method === "authenticator" ? "push" : method);
+            return;
+          }
+
+          if (options.methods?.includes("webauthn") && !loginUsername.value) {
+            self.selectAuthMethod("webauthn");
+            return;
+          }
+        }
+
+        if (this.dataset.btn === "register") {
+          if (options.methods?.length === 1) {
+            const [method] = options.methods;
+            const register: Record<AuthMethods, () => Promise<void>> = {
+              magiclink: () => self.registerMagicLink(registerUsername.value),
+              webauthn: () => self.registerWebAuthn(registerUsername.value),
+              authenticator: () =>
+                self.registerAuthenticator(registerUsername.value)
+            };
+
+            register[method]();
+            return;
+          }
+        }
+
+        if (modal) {
+          modal.dataset.type = this.dataset.btn;
+          modal.classList.remove(styles.hidden);
+        }
+      });
+    });
+
+    if (modalBg) {
+      modalBg.addEventListener("click", this.closeModal);
+    }
+
+    cards.forEach(card =>
+      card.addEventListener("click", () => {
+        const type = card.dataset.card as AuthTypes;
+        const modal = document.querySelector(
+          `.${styles.modal}`
+        ) as HTMLDivElement;
+        const registerUsername = document.querySelector(
+          `#register .${styles.email}`
+        ) as HTMLInputElement;
+
+        if (modal.dataset.type === "login") {
+          this.selectAuthMethod(type);
+        }
+
+        if (modal.dataset.type === "register") {
+          const register: Record<AuthTypes, () => Promise<void>> = {
+            magiclink: () => this.registerMagicLink(registerUsername.value),
+            webauthn: () => this.registerWebAuthn(registerUsername.value),
+            push: () => this.registerAuthenticator(registerUsername.value),
+            usernameless: () =>
+              this.registerAuthenticator(registerUsername.value)
+          };
+
+          register[type]();
+        }
+      })
+    );
+
+    document
+      .querySelector(`.${styles.refresh}`)
+      ?.addEventListener("click", () => {
+        this.requestAuth("usernameless");
+      });
+
+    document
+      .querySelector(`.${styles.timeoutBtn}`)
+      ?.addEventListener("click", () => {
+        this.requestAuth("usernameless");
+      });
+
+    document
+      .querySelector(`#register .${styles.email}`)
+      ?.addEventListener("input", e => {
+        if ((e.target as HTMLInputElement).value?.trim()) {
+          document
+            .querySelector(`#register .${styles.btn}`)
+            ?.classList.remove(styles.disabled);
+        } else {
+          document
+            .querySelector(`#register .${styles.btn}`)
+            ?.classList.add(styles.disabled);
+        }
+      });
+
+    document
+      .querySelector(`#login .${styles.email}`)
+      ?.addEventListener("input", e => {
+        if (
+          (e.target as HTMLInputElement).value?.trim() ||
+          options.methods?.includes("webauthn")
+        ) {
+          document
+            .querySelector(`#login .${styles.btn}`)
+            ?.classList.remove(styles.disabled);
+        } else {
+          document
+            .querySelector(`#login .${styles.btn}`)
+            ?.classList.add(styles.disabled);
+        }
+      });
+
+    if (options.methods?.includes("authenticator")) {
+      this.requestAuth("usernameless");
+      this.tickTimer();
+    }
+  };
+
+  setStyle = (styles: FormStyles): void => {
+    const cssVariables: { [x: string]: string } = {
+      accentColor: "--accent-color",
+      backgroundColor: "--background-color",
+      tabColor: "--tab-color",
+      activeTabColor: "--active-tab-color"
+    };
+
+    Object.entries(styles).map(([key, value]) => {
+      if (key in cssVariables && typeof cssVariables[key] === "string") {
+        document.body.style.setProperty(cssVariables[key], value);
+      }
+    });
+  };
 
   // -- Event Listener functions
 
-  on(eventName: Events, fn: EventListener) {
+  public on(eventName: Events, fn: EventListener): void {
     this.ensureEventExists(eventName);
 
     const listeners = this.eventListeners.get(eventName) ?? [];
     this.eventListeners.set(eventName, [...listeners, fn]);
   }
 
-  off(eventName: Events) {
+  public off(eventName: Events): void {
     this.ensureEventExists(eventName);
 
     this.eventListeners.set(eventName, []);
@@ -1047,8 +1706,8 @@ class SDK {
   }: AuthenticateArgs) => {
     try {
       if (showPopup === true || (sendPush && showPopup !== false)) {
-        const qrCodeImage = $(".qr-code-img");
-        qrCodeImage?.classList.add("hidden");
+        const qrCodeImage = $(`.${styles.qrCodeImg}`);
+        qrCodeImage?.classList.add(styles.hidden);
         this.showPopup();
       }
 
@@ -1071,15 +1730,17 @@ class SDK {
           back: "#202020",
           fill: "#2cb2b5"
         }).src;
-        const qrCodeImage = $(".qr-code-img");
-        qrCodeImage?.classList.remove("hidden");
+        const qrCodeImage = $(`.${styles.qrCodeImg}`);
+        qrCodeImage?.classList.remove(styles.hidden);
         qrCodeImage?.setAttribute("src", qrCode);
       }
 
-      const visualVerifyElement = $(".visual-verify-icon") as HTMLDivElement;
+      const visualVerifyElement = $(
+        `.${styles.visualVerifyIcon}`
+      ) as HTMLDivElement;
 
       if (visualVerifyElement && data.visual_verify_value) {
-        visualVerifyElement.classList.remove("hidden");
+        visualVerifyElement.classList.remove(styles.hidden);
         visualVerifyElement.textContent = data.visual_verify_value;
         visualVerifyElement.style.backgroundColor = generateColor(
           data.visual_verify_value
@@ -1180,6 +1841,13 @@ class SDK {
       show: this.showPopup,
       hide: this.hidePopup,
       updateMessage: this.updateMessage
+    };
+  }
+
+  get form() {
+    return {
+      mount: this.mount,
+      stylize: this.setStyle
     };
   }
 }
