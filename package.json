@@ -51,7 +51,7 @@
     "webpack-cli": "^4.7.2"
   },
   "dependencies": {
-    "autharmor-webauthn-sdk": "^1.0.1",
+    "autharmor-webauthn-sdk": "^1.0.3",
     "kjua": "^0.6.0",
     "redaxios": "^0.4.1",
     "string-to-color": "^2.2.2"

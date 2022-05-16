@@ -168,10 +168,8 @@ class SDK {
   private webauthn?: WebAuthnSDK;
   private events: Events[];
   private eventListeners: Map<Events, EventListener[]>;
-  private socket: WebSocket | undefined;
   private tickTimerId?: NodeJS.Timeout;
   private requestCompleted = false;
-  private polling: boolean;
   private pollInterval = 500;
   private expirationDate = Date.now();
   private pollTimerId?: NodeJS.Timeout;
@@ -183,13 +181,11 @@ class SDK {
 
   constructor({
     endpointBasePath = "",
-    polling = false,
     publicKey = "",
     webauthnClientId = "",
     debug = { url: "https://auth.autharmor.dev" }
   }) {
     this.url = this.processUrl(endpointBasePath);
-    this.polling = polling;
 
     if (!publicKey) {
       throw new Error("Please specify a valid public key!");
@@ -238,7 +234,7 @@ class SDK {
 
     window.AuthArmor = {};
     this.init = this.init.bind(this);
-    this.init({ polling });
+    this.init();
   }
 
   // Private Methods
@@ -417,7 +413,7 @@ class SDK {
     }, 200);
   };
 
-  private init({ polling = false }) {
+  private init() {
     document.body.innerHTML += `
       <div class="${styles.popupOverlay} ${styles.hidden}">
         <div class="${styles.popupOverlayContent}">
@@ -477,21 +473,6 @@ class SDK {
         visualVerifyElement.textContent = "";
       }
     });
-
-    if (!polling) {
-      this.socket = new WebSocket(
-        (this.url + "/socket").replace(/^http/gi, "ws")
-      );
-
-      const timer = setInterval(() => {
-        if (this.socket) {
-          this.socket.send(`1`);
-          return;
-        }
-
-        clearInterval(timer);
-      }, 25000); // Keep websocket connection alive
-    }
 
     window.AuthArmor.openedWindow = () => {
       this.executeEvent("inviteWindowOpened");
@@ -740,6 +721,22 @@ class SDK {
 
     const body = await response.json();
 
+    if (response.status >= 400) {
+      const errorMessage = body.errorMessage || "An unknown error has occurred";
+      document
+        .querySelector(`.${styles.loadingOverlay}`)!
+        .classList.add(styles.hidden);
+      document
+        .querySelector(`#register .${styles.inputContainer}`)!
+        .classList.add(styles.invalid);
+      document.querySelector(
+        `#register .${styles.inputErrorMessage}`
+      )!.textContent = errorMessage;
+      this.updateMessage(errorMessage, "danger");
+      this.hidePopup();
+      throw new Error(errorMessage);
+    }
+
     console.log(body);
 
     this.getEnrollmentStatus({
@@ -749,31 +746,51 @@ class SDK {
   };
 
   registerMagicLink = async (username: string): Promise<void> => {
-    const timeoutSeconds = 120;
-    // TODO: Customize auth payload
-    const payload = {
-      action_name: "Login",
-      email_address: username,
-      short_msg: "Login pending - please authorize",
-      timeout_in_seconds: timeoutSeconds,
-      origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
-      redirect_url: "http://localhost:3000/magic-register"
-    };
+    try {
+      const timeoutSeconds = 120;
+      // TODO: Customize auth payload
+      const payload = {
+        action_name: "Login",
+        email_address: username,
+        short_msg: "Login pending - please authorize",
+        timeout_in_seconds: timeoutSeconds,
+        origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
+        redirect_url: "http://localhost:3000/magic-register"
+      };
 
-    const response = await fetch(
-      `${this.debug.url}/api/v3/users/register/magiclink/start?apikey=${this.publicKey}`,
-      {
-        headers: {
-          "Content-Type": "application/json"
-        },
-        method: "POST",
-        body: JSON.stringify(payload)
+      const response = await fetch(
+        `${this.debug.url}/api/v3/users/register/magiclink/start?apikey=${this.publicKey}`,
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+          method: "POST",
+          body: JSON.stringify(payload)
+        }
+      );
+
+      const body = await response.json();
+
+      if (response.status >= 400) {
+        const errorMessage =
+          body.errorMessage || "An unknown error has occurred";
+        document
+          .querySelector(`.${styles.loadingOverlay}`)!
+          .classList.add(styles.hidden);
+        document
+          .querySelector(`#register .${styles.inputContainer}`)!
+          .classList.add(styles.invalid);
+        document.querySelector(
+          `#register .${styles.inputErrorMessage}`
+        )!.textContent = errorMessage;
+        this.updateMessage(errorMessage, "danger");
+        this.hidePopup();
+        throw new Error(errorMessage);
       }
-    );
-
-    const body = await response.json();
-
-    console.log(body);
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
   };
 
   registerWebAuthn = async (username: string): Promise<void> => {
@@ -801,7 +818,7 @@ class SDK {
         webauthn_client_id: this.webauthnClientId
       };
 
-      const start = await fetch(
+      const startResponse = await fetch(
         `${this.debug.url}/api/v3/users/register/webauthn/start?apikey=${this.publicKey}`,
         {
           headers: {
@@ -810,9 +827,28 @@ class SDK {
           method: "POST",
           body: JSON.stringify(payload)
         }
-      ).then(response => response.json());
+      );
 
-      const parsedResponse = await this.webauthn?.create(start);
+      const startBody = await startResponse.json();
+
+      if (startResponse.status >= 400) {
+        const errorMessage =
+          startBody.errorMessage || "An unknown error has occurred";
+        document
+          .querySelector(`.${styles.loadingOverlay}`)!
+          .classList.add(styles.hidden);
+        document
+          .querySelector(`#register .${styles.inputContainer}`)!
+          .classList.add(styles.invalid);
+        document.querySelector(
+          `#register .${styles.inputErrorMessage}`
+        )!.textContent = errorMessage;
+        this.updateMessage(errorMessage, "danger");
+        this.hidePopup();
+        throw new Error(errorMessage);
+      }
+
+      const parsedResponse = await this.webauthn?.create(startBody);
 
       const finish = await fetch(
         `${this.debug.url}/api/v3/users/register/webauthn/finish?apikey=${this.publicKey}`,
@@ -898,94 +934,104 @@ class SDK {
 
   // Authentication
   requestAuth = async (type: AuthTypes, username?: string): Promise<void> => {
-    document
-      .querySelector(`.${styles.loadingOverlay}`)!
-      .classList.remove(styles.hidden);
-    this.hasCalledValidate = false;
+    try {
+      document
+        .querySelector(`.${styles.loadingOverlay}`)!
+        .classList.remove(styles.hidden);
+      this.hasCalledValidate = false;
 
-    const timeoutSeconds = 30;
-    // TODO: Customize auth payload
-    const payload = {
-      action_name: "Login",
-      username,
-      short_msg: "Login pending - please authorize",
-      timeout_in_seconds: timeoutSeconds,
-      origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
-      redirect_url:
-        type === "magiclink" ? "http://localhost:3000/magic-login" : null,
-      send_push: type === "push"
-    };
+      const timeoutSeconds = 30;
+      // TODO: Customize auth payload
+      const payload = {
+        action_name: "Login",
+        username,
+        short_msg: "Login pending - please authorize",
+        timeout_in_seconds: timeoutSeconds,
+        origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
+        redirect_url:
+          type === "magiclink" ? "http://localhost:3000/magic-login" : null,
+        send_push: type === "push"
+      };
 
-    document
-      .querySelector(`#login .${styles.inputContainer}`)!
-      .classList.remove(styles.invalid);
-    document
-      .querySelector(`.${styles.qrCodeTimeout}`)
-      ?.classList.add(styles.hidden);
+      document
+        .querySelector(`#login .${styles.inputContainer}`)!
+        .classList.remove(styles.invalid);
+      document
+        .querySelector(`.${styles.qrCodeTimeout}`)
+        ?.classList.add(styles.hidden);
 
-    const response = await fetch(
-      `${this.debug.url}/api/v3/auth/request/${
-        type === "magiclink" ? type : "authenticator"
-      }/start?apikey=${this.publicKey}`,
-      {
-        headers: {
-          "Content-Type": "application/json"
-        },
-        method: "POST",
-        body: JSON.stringify(payload)
+      const response = await fetch(
+        `${this.debug.url}/api/v3/auth/request/${
+          type === "magiclink" ? type : "authenticator"
+        }/start?apikey=${this.publicKey}`,
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+          method: "POST",
+          body: JSON.stringify(payload)
+        }
+      );
+      const body = await response.json();
+
+      if (response.status >= 400) {
+        const errorMessage =
+          body.errorMessage || "An unknown error has occurred";
+        document
+          .querySelector(`.${styles.loadingOverlay}`)!
+          .classList.add(styles.hidden);
+        document
+          .querySelector(`#login .${styles.inputContainer}`)!
+          .classList.add(styles.invalid);
+        document.querySelector(
+          `#login .${styles.inputErrorMessage}`
+        )!.textContent = errorMessage;
+        this.updateMessage(errorMessage, "danger");
+        this.hidePopup();
+        return;
       }
-    );
-    const body = await response.json();
 
-    if (response.status >= 400) {
-      const errorMessage = body.errorMessage || "An unknown error has occurred";
+      const qrCode = kjua({
+        text: body.qr_code_data.replace("autharmor.com", "autharmor.dev"),
+        rounded: 10,
+        back: "#202020",
+        fill: "#2cb2b5"
+      });
+      const popupQRCode = document.querySelector(`.${styles.qrCodeImg}`);
+      popupQRCode?.classList.remove(styles.hidden);
+      popupQRCode?.setAttribute("src", qrCode.src);
+
+      if (type === "usernameless") {
+        const qrCodeImg = document.querySelector(
+          `.${styles.usernamelessQrImg}`
+        ) as HTMLImageElement;
+        qrCodeImg.setAttribute("src", qrCode.src);
+
+        this.expirationDate = Date.now() + body.timeout_in_seconds * 1000;
+        if (this.tickTimerId) {
+          clearTimeout(this.tickTimerId);
+        }
+        this.tickTimer();
+      }
+
+      if (this.pollTimerId) {
+        clearTimeout(this.pollTimerId);
+      }
+      this.getRequestStatus({
+        id: body.auth_request_id,
+        pollDuration: 1000
+      });
+      document
+        .querySelector(`.${styles.loadingOverlay}`)!
+        .classList.add(styles.hidden);
+    } catch (err) {
       document
         .querySelector(`.${styles.loadingOverlay}`)!
         .classList.add(styles.hidden);
       document
-        .querySelector(`#login .${styles.inputContainer}`)!
-        .classList.add(styles.invalid);
-      document.querySelector(
-        `#login .${styles.inputErrorMessage}`
-      )!.textContent = errorMessage;
-      this.updateMessage(errorMessage, "danger");
-      this.hidePopup();
-      return;
+        .querySelector(`.${styles.criticalError}`)!
+        .classList.remove(styles.hidden);
     }
-
-    const qrCode = kjua({
-      text: body.qr_code_data.replace("autharmor.com", "autharmor.dev"),
-      rounded: 10,
-      back: "#202020",
-      fill: "#2cb2b5"
-    });
-    const popupQRCode = document.querySelector(`.${styles.qrCodeImg}`);
-    popupQRCode?.classList.remove(styles.hidden);
-    popupQRCode?.setAttribute("src", qrCode.src);
-
-    if (type === "usernameless") {
-      const qrCodeImg = document.querySelector(
-        `.${styles.usernamelessQrImg}`
-      ) as HTMLImageElement;
-      qrCodeImg.setAttribute("src", qrCode.src);
-
-      this.expirationDate = Date.now() + body.timeout_in_seconds * 1000;
-      if (this.tickTimerId) {
-        clearTimeout(this.tickTimerId);
-      }
-      this.tickTimer();
-    }
-
-    if (this.pollTimerId) {
-      clearTimeout(this.pollTimerId);
-    }
-    this.getRequestStatus({
-      id: body.auth_request_id,
-      pollDuration: 1000
-    });
-    document
-      .querySelector(`.${styles.loadingOverlay}`)!
-      .classList.add(styles.hidden);
   };
 
   private selectAuthMethod = (type: AuthTypes): void => {
@@ -1054,6 +1100,17 @@ class SDK {
               <div></div>
               <div></div>
             </div>
+          </div>
+          <div class="${styles.criticalError} ${styles.hidden}">
+            <div class="${styles.errorIcon}">
+              <img src="" alt="Error" />
+            </div>
+            <p class="${styles.errorTitle}">Something went wrong</p>
+            <p class="${styles.errorDesc}">
+              An error has occurred while communicating with the AuthArmor API,
+              please make sure you've added the following domain to the allowed
+              domains list: "${location.host}"
+            </p>
           </div>
           <div class="${styles.tabs}">
             <div class="${styles.tab} ${styles.activeTab}" data-tab="login">
@@ -1745,41 +1802,6 @@ class SDK {
         visualVerifyElement.style.backgroundColor = generateColor(
           data.visual_verify_value
         );
-      }
-
-      if (this.socket) {
-        this.socket.send(
-          JSON.stringify({
-            event: "subscribe:auth",
-            data: {
-              id: data.auth_request_id
-            }
-          })
-        );
-
-        this.socket.onmessage = event => {
-          try {
-            const parsedData = JSON.parse(event.data);
-            if (parsedData.event === "auth:response") {
-              this.onAuthResponse({
-                authResponse: parsedData.data,
-                onSuccess,
-                onFailure
-              });
-              this.hidePopup();
-            }
-          } catch (err) {
-            console.error(err);
-          }
-        };
-      }
-
-      if (this.polling) {
-        this.pollAuthRequest({
-          id: data.auth_request_id,
-          onFailure,
-          onSuccess
-        });
       }
 
       return {
