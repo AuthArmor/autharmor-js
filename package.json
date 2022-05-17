@@ -1,6 +1,6 @@
 {
   "name": "autharmor-sdk",
-  "version": "2.4.6",
+  "version": "2.4.7",
   "main": "build/index.js",
   "license": "MIT",
   "homepage": "https://github.com/AuthArmor/autharmor-jsclient-sdk#readme",
@@ -51,7 +51,7 @@
     "webpack-cli": "^4.7.2"
   },
   "dependencies": {
-    "autharmor-webauthn-sdk": "^1.0.3",
+    "autharmor-webauthn-sdk": "^1.0.8",
     "kjua": "^0.6.0",
     "redaxios": "^0.4.1",
     "string-to-color": "^2.2.2"
