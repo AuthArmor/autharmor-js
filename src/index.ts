@@ -22,6 +22,7 @@ type Events =
   | "inviteDeclined"
   | "inviteExists"
   | "inviteCancelled"
+  | "registerSuccess"
   | "error";
 
 type AuthTypes = "magiclink" | "push" | "usernameless" | "webauthn";
@@ -120,11 +121,13 @@ interface FormStyles {
 
 interface FormMountOptions {
   methods?: AuthMethods[];
+  usernameless?: boolean;
   styles?: Partial<FormStyles>;
 }
 
 const defaultOptions: FormMountOptions = {
   methods: ["authenticator", "magiclink", "webauthn"],
+  usernameless: true,
   styles: {
     accentColor: "#0bdbdb",
     backgroundColor: "#2a2d35",
@@ -157,6 +160,10 @@ declare global {
     AuthArmorSDK: any;
     AuthArmor: any;
   }
+
+  interface Crypto {
+    randomUUID: () => string;
+  }
 }
 
 const $ = (selectors: string) => document.querySelector(selectors);
@@ -175,6 +182,8 @@ class SDK {
   private pollTimerId?: NodeJS.Timeout;
   private QRAnimationTimer?: NodeJS.Timeout;
   private hasCalledValidate = false;
+  private registerRedirectUrl?: string;
+  private authenticationRedirectUrl?: string;
   private debug: DebugSettings = {
     url: "https://auth.autharmor.dev"
   };
@@ -183,9 +192,19 @@ class SDK {
     endpointBasePath = "",
     publicKey = "",
     webauthnClientId = "",
+    registerRedirectUrl = "",
+    authenticationRedirectUrl = "",
     debug = { url: "https://auth.autharmor.dev" }
   }) {
     this.url = this.processUrl(endpointBasePath);
+
+    if (registerRedirectUrl) {
+      this.registerRedirectUrl = registerRedirectUrl;
+    }
+
+    if (authenticationRedirectUrl) {
+      this.authenticationRedirectUrl = authenticationRedirectUrl;
+    }
 
     if (!publicKey) {
       throw new Error("Please specify a valid public key!");
@@ -594,12 +613,91 @@ class SDK {
     }, 1000);
   };
 
+  private bytesToHex = (hash: ArrayBuffer) =>
+    Array.from(new Uint8Array(hash))
+      .map(b => b.toString(16).padStart(2, "0"))
+      .join("");
+
+  private sha256 = async (message: string) => {
+    // encode as UTF-8
+    const msgBuffer = new TextEncoder().encode(message);
+
+    // hash the message
+    const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+
+    // convert bytes to hex string
+    const hashHex = this.bytesToHex(hashBuffer);
+
+    return { hashBuffer, hashHex };
+  };
+
+  private hmac = async (secret: ArrayBuffer, message: string) => {
+    const encoder = new TextEncoder();
+    const key = await window.crypto.subtle.importKey(
+      "raw", // raw format of the key - should be Uint8Array
+      new Uint8Array(secret),
+      {
+        // algorithm details
+        name: "HMAC",
+        hash: { name: "SHA-256" }
+      },
+      false, // export = false
+      ["sign", "verify"] // what this key can do
+    );
+    const signature = await window.crypto.subtle.sign(
+      "HMAC",
+      key,
+      encoder.encode(message)
+    );
+    const b = new Uint8Array(signature);
+    const str = Array.prototype.map
+      .call(b, x => x.toString(16).padStart(2, "0"))
+      .join("");
+
+    return str;
+  };
+
+  private getRequestSignature = async (url: string, body = "") => {
+    const timestamp = new Date().toISOString();
+    const nonce = crypto?.randomUUID().replace(/-/g, "");
+
+    const urlParser = document.createElement("a");
+    urlParser.href = url;
+
+    const [, keyPayloadBase64] = this.publicKey?.split(".") ?? [];
+    const keyPayload = JSON.parse(atob(keyPayloadBase64));
+    const requestPath = urlParser.pathname.replace(/\/$/gi, "");
+    const host = location.hostname;
+    const signature = [keyPayload.key, timestamp, requestPath, host].join("|");
+    const { hashBuffer: signatureBuffer } = await this.sha256(signature);
+
+    const { hashHex: hashedBody } = await this.sha256(body);
+    const userAgent = navigator.userAgent.trim().toLowerCase();
+    const message = [hashedBody, userAgent, timestamp, nonce].join("|");
+
+    const finalSignature = await this.hmac(signatureBuffer, message);
+    return [finalSignature, timestamp, nonce].join("|");
+  };
+
+  private fetch = async (url: string, options: any = {}) => {
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers ?? {}),
+        "X-AuthArmor-ClientMsgSigv1": await this.getRequestSignature(
+          url,
+          options.body
+        )
+      }
+    });
+  };
+
   private getEnrollmentStatus = async ({
     id = "",
-    expirationDate = new Date(),
+    expirationDate = Date.now(),
     pollDuration = 2000
   } = {}): Promise<void> => {
-    const body = await fetch(
+    const body = await this.fetch(
       `${this.debug.url}/api/v3/users/${id}/autharmorauthenticatorenrollmentstatus?apikey=${this.publicKey}`,
       {
         method: "POST"
@@ -608,11 +706,12 @@ class SDK {
 
     if (
       body.enrollment_status === "not_enrolled_or_not_found" &&
-      new Date(expirationDate).getTime() <= Date.now()
+      expirationDate <= Date.now()
     ) {
+      console.log("Invite Expired...");
       document
-        .querySelector(`.${styles.qrCodeTimeout}`)!
-        .classList.remove(styles.hidden);
+        .querySelector(`.${styles.qrCodeTimeout}`)
+        ?.classList.remove(styles.hidden);
       this.hasCalledValidate = true;
       this.executeEvent("error", body);
       return;
@@ -622,8 +721,9 @@ class SDK {
       pollDuration &&
       body.enrollment_status === "not_enrolled_or_not_found"
     ) {
+      console.log("Polling Invite...");
       this.pollTimerId = setTimeout(() => {
-        this.getEnrollmentStatus({ id, pollDuration });
+        this.getEnrollmentStatus({ id, pollDuration, expirationDate });
       }, pollDuration);
       return;
     }
@@ -639,6 +739,10 @@ class SDK {
       !this.hasCalledValidate
     ) {
       // TODO: Do something on success
+      this.executeEvent("registerSuccess", {
+        ...body,
+        auth_request_id: body.auth_request_id
+      });
       this.executeEvent("authenticated", {
         ...body,
         auth_request_id: body.auth_request_id
@@ -656,7 +760,7 @@ class SDK {
     id = "",
     pollDuration = 2000
   } = {}): Promise<void> => {
-    const body = await fetch(
+    const body = await this.fetch(
       `${this.debug.url}/api/v3/auth/request/status/${id}?apikey=${this.publicKey}`,
       {
         method: "GET"
@@ -702,13 +806,12 @@ class SDK {
       short_msg: "Login pending - please authorize",
       timeout_in_seconds: timeoutSeconds,
       origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
-      redirect_url: "http://localhost:3000/magic-register"
+      registration_redirect_url: "http://localhost:3000/magic-register"
     };
 
-    this.showPopupQRCode();
-    this.showPopup("Please scan the QR Code with your phone", true);
+    this.showPopup("Loading QR Code...", true);
 
-    const response = await fetch(
+    const response = await this.fetch(
       `${this.debug.url}/api/v3/users/register/authenticator/start?apikey=${this.publicKey}`,
       {
         headers: {
@@ -732,6 +835,13 @@ class SDK {
       document.querySelector(
         `#register .${styles.inputErrorMessage}`
       )!.textContent = errorMessage;
+
+      const modal = document.querySelector(`.${styles.modal}`);
+
+      if (modal) {
+        modal.classList.add(styles.hidden);
+      }
+
       this.updateMessage(errorMessage, "danger");
       this.hidePopup();
       throw new Error(errorMessage);
@@ -739,14 +849,57 @@ class SDK {
 
     console.log(body);
 
+    this.updateMessage("Please scan the QR Code with your phone");
+
+    const qrCode = kjua({
+      text: body.qr_code_data.replace("autharmor.com", "autharmor.dev"),
+      rounded: 10,
+      back: "#202020",
+      fill: "#2cb2b5"
+    });
+
+    const popupQRCode = document.querySelector(`.${styles.qrCodeImg}`);
+    popupQRCode?.classList.remove(styles.hidden);
+    popupQRCode?.setAttribute("src", qrCode.src);
+
+    this.showPopupQRCode();
+
     this.getEnrollmentStatus({
       id: body.user_id,
-      pollDuration: 2000
+      pollDuration: 2000,
+      expirationDate: Date.now() + timeoutSeconds * 1000
     });
   };
 
   registerMagicLink = async (username: string): Promise<void> => {
     try {
+      const container = document.querySelector(
+        `#register .${styles.inputContainer}`
+      );
+      const inputErrorMessage = document.querySelector(
+        `#register .${styles.inputErrorMessage}`
+      );
+
+      if (
+        !username ||
+        !/^\w+([\.-]?\w\++)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(username)
+      ) {
+        const errorMessage = "Please specify a valid email";
+        document
+          .querySelector(`.${styles.loadingOverlay}`)!
+          .classList.add(styles.hidden);
+        container!.classList.add(styles.invalid);
+        inputErrorMessage!.textContent = errorMessage;
+
+        const modal = document.querySelector(`.${styles.modal}`);
+
+        if (modal) {
+          modal.classList.add(styles.hidden);
+        }
+
+        return;
+      }
+
       const timeoutSeconds = 120;
       // TODO: Customize auth payload
       const payload = {
@@ -755,10 +908,10 @@ class SDK {
         short_msg: "Login pending - please authorize",
         timeout_in_seconds: timeoutSeconds,
         origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
-        redirect_url: "http://localhost:3000/magic-register"
+        registration_redirect_url: this.registerRedirectUrl
       };
 
-      const response = await fetch(
+      const response = await this.fetch(
         `${this.debug.url}/api/v3/users/register/magiclink/start?apikey=${this.publicKey}`,
         {
           headers: {
@@ -783,6 +936,13 @@ class SDK {
         document.querySelector(
           `#register .${styles.inputErrorMessage}`
         )!.textContent = errorMessage;
+
+        const modal = document.querySelector(`.${styles.modal}`);
+
+        if (modal) {
+          modal.classList.add(styles.hidden);
+        }
+
         this.updateMessage(errorMessage, "danger");
         this.hidePopup();
         throw new Error(errorMessage);
@@ -818,7 +978,7 @@ class SDK {
         webauthn_client_id: this.webauthnClientId
       };
 
-      const startResponse = await fetch(
+      const startResponse = await this.fetch(
         `${this.debug.url}/api/v3/users/register/webauthn/start?apikey=${this.publicKey}`,
         {
           headers: {
@@ -843,6 +1003,12 @@ class SDK {
         document.querySelector(
           `#register .${styles.inputErrorMessage}`
         )!.textContent = errorMessage;
+        const modal = document.querySelector(`.${styles.modal}`);
+
+        if (modal) {
+          modal.classList.add(styles.hidden);
+        }
+
         this.updateMessage(errorMessage, "danger");
         this.hidePopup();
         throw new Error(errorMessage);
@@ -850,7 +1016,7 @@ class SDK {
 
       const parsedResponse = await this.webauthn?.create(startBody);
 
-      const finish = await fetch(
+      const finish = await this.fetch(
         `${this.debug.url}/api/v3/users/register/webauthn/finish?apikey=${this.publicKey}`,
         {
           headers: {
@@ -894,7 +1060,7 @@ class SDK {
         webauthn_client_id: this.webauthnClientId
       };
 
-      const start = await fetch(
+      const startResponse = await this.fetch(
         `${this.debug.url}/api/v3/auth/request/webauthn/start?apikey=${this.publicKey}`,
         {
           headers: {
@@ -903,18 +1069,48 @@ class SDK {
           method: "POST",
           body: JSON.stringify(payload)
         }
-      ).then(response => response.json());
+      );
 
-      const parsedResponse = await this.webauthn?.get(start);
+      const startBody = await startResponse.json();
 
-      const finish = await fetch(
+      if (startResponse.status >= 400) {
+        const errorMessage =
+          startBody.errorMessage || "An unknown error has occurred";
+        document
+          .querySelector(`.${styles.loadingOverlay}`)!
+          .classList.add(styles.hidden);
+        document
+          .querySelector(`#login .${styles.inputContainer}`)!
+          .classList.add(styles.invalid);
+        document.querySelector(
+          `#login .${styles.inputErrorMessage}`
+        )!.textContent = errorMessage;
+        const modal = document.querySelector(`.${styles.modal}`);
+
+        if (modal) {
+          modal.classList.add(styles.hidden);
+        }
+
+        this.updateMessage(errorMessage, "danger");
+        this.hidePopup();
+        return;
+      }
+
+      const parsedResponse = await this.webauthn?.get(startBody);
+
+      const finish = await this.fetch(
         `${this.debug.url}/api/v3/auth/request/webauthn/finish?apikey=${this.publicKey}`,
         {
           headers: {
             "Content-Type": "application/json"
           },
           method: "POST",
-          body: JSON.stringify(parsedResponse)
+          body: JSON.stringify({
+            ...parsedResponse,
+            authenticator_response_data: JSON.stringify(
+              parsedResponse?.authenticator_response_data
+            )
+          })
         }
       );
 
@@ -948,8 +1144,8 @@ class SDK {
         short_msg: "Login pending - please authorize",
         timeout_in_seconds: timeoutSeconds,
         origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
-        redirect_url:
-          type === "magiclink" ? "http://localhost:3000/magic-login" : null,
+        authentication_redirect_url:
+          type === "magiclink" ? this.authenticationRedirectUrl : null,
         send_push: type === "push"
       };
 
@@ -960,7 +1156,7 @@ class SDK {
         .querySelector(`.${styles.qrCodeTimeout}`)
         ?.classList.add(styles.hidden);
 
-      const response = await fetch(
+      const response = await this.fetch(
         `${this.debug.url}/api/v3/auth/request/${
           type === "magiclink" ? type : "authenticator"
         }/start?apikey=${this.publicKey}`,
@@ -986,6 +1182,12 @@ class SDK {
         document.querySelector(
           `#login .${styles.inputErrorMessage}`
         )!.textContent = errorMessage;
+        const modal = document.querySelector(`.${styles.modal}`);
+
+        if (modal) {
+          modal.classList.add(styles.hidden);
+        }
+
         this.updateMessage(errorMessage, "danger");
         this.hidePopup();
         return;
@@ -1005,7 +1207,7 @@ class SDK {
         const qrCodeImg = document.querySelector(
           `.${styles.usernamelessQrImg}`
         ) as HTMLImageElement;
-        qrCodeImg.setAttribute("src", qrCode.src);
+        qrCodeImg?.setAttribute("src", qrCode.src);
 
         this.expirationDate = Date.now() + body.timeout_in_seconds * 1000;
         if (this.tickTimerId) {
@@ -1025,6 +1227,7 @@ class SDK {
         .querySelector(`.${styles.loadingOverlay}`)!
         .classList.add(styles.hidden);
     } catch (err) {
+      console.error(err);
       document
         .querySelector(`.${styles.loadingOverlay}`)!
         .classList.add(styles.hidden);
@@ -1040,12 +1243,21 @@ class SDK {
     const email = document.querySelector(
       `.${styles.email}`
     ) as HTMLInputElement;
+    const container = document.querySelector(
+      `#login .${styles.inputContainer}`
+    );
+    const inputErrorMessage = document.querySelector(
+      `#login .${styles.inputErrorMessage}`
+    );
 
     console.log("Selecting Auth method...", type);
 
     if (!pushNotice || !qrCodeBtn) {
       throw new Error("DOM was unexpectedly modified");
     }
+
+    container!.classList.remove(styles.invalid);
+    inputErrorMessage!.textContent = "";
 
     if (type === "push") {
       pushNotice.textContent = "We've sent a push message to your device(s)";
@@ -1054,6 +1266,28 @@ class SDK {
     }
 
     if (type === "magiclink") {
+      if (
+        !email.value ||
+        !/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email.value)
+      ) {
+        const errorMessage = "Please specify a valid email";
+        document
+          .querySelector(`.${styles.loadingOverlay}`)!
+          .classList.add(styles.hidden);
+        container!.classList.add(styles.invalid);
+        inputErrorMessage!.textContent = errorMessage;
+
+        console.log(`#login .${styles.inputContainer}`);
+
+        const modal = document.querySelector(`.${styles.modal}`);
+
+        if (modal) {
+          modal.classList.add(styles.hidden);
+        }
+
+        return;
+      }
+
       pushNotice.textContent = "We've sent a magic link to your email";
       qrCodeBtn.textContent =
         "Didn't get the magic link? Click here to scan a QR code instead";
@@ -1078,6 +1312,19 @@ class SDK {
     this.requestAuth(type, email.value);
   };
 
+  setCardText = (messages: Record<string, string>) => {
+    Object.entries(messages).map(([key, value]) => {
+      if (key === "title") {
+        document.querySelector(`.${styles.modalHeader}`)!.textContent = value;
+        return value;
+      }
+
+      document.querySelector(
+        `[data-card="${key}"] .${styles.text}`
+      )!.textContent = value;
+    });
+  };
+
   mount = (selector = "", options: FormMountOptions = defaultOptions): void => {
     const element = document.querySelector(selector);
 
@@ -1087,8 +1334,15 @@ class SDK {
       );
     }
 
+    const parsedOptions = {
+      ...defaultOptions,
+      ...options
+    };
+
     const authenticatorEnabled =
-      !options.methods || options.methods?.includes("authenticator");
+      (!parsedOptions.methods ||
+        parsedOptions.methods?.includes("authenticator")) &&
+      parsedOptions.usernameless !== false;
 
     element.innerHTML = `
       <div class="${styles.container}">
@@ -1167,7 +1421,7 @@ class SDK {
             </div>
             <div
               class="${styles.btn} ${
-      options.methods?.includes("webauthn") ? "" : styles.disabled
+      parsedOptions.methods?.includes("webauthn") ? "" : styles.disabled
     }"
               data-btn="login">
               <p>Login</p>
@@ -1204,11 +1458,12 @@ class SDK {
           <p class="${styles.modalHeader}">Pick your auth method</p>
           <div class="${styles.cards}">
             ${
-              !options.methods || options.methods?.includes("authenticator")
+              !parsedOptions.methods ||
+              parsedOptions.methods?.includes("authenticator")
                 ? `
                   <div class="${
                     styles.card
-                  }" data-card="push" style="width: calc((100% / ${options
+                  }" data-card="push" style="width: calc((100% / ${parsedOptions
                     .methods?.length ?? 3}) - 15px)">
                     <div class="${styles.icon}">
                       <img src="${phoneIcon}" alt="icon" />
@@ -1223,11 +1478,12 @@ class SDK {
             }
 
             ${
-              !options.methods || options.methods.includes("magiclink")
+              !parsedOptions.methods ||
+              parsedOptions.methods.includes("magiclink")
                 ? `
                   <div class="${styles.card} ${
                     styles.email
-                  }" data-card="magiclink" style="width: calc((100% / ${options
+                  }" data-card="magiclink" style="width: calc((100% / ${parsedOptions
                     .methods?.length ?? 3}) - 15px)">
                     <div class="${styles.icon}">
                       <img src="${emailIcon}" alt="icon" />
@@ -1241,11 +1497,12 @@ class SDK {
             }
 
             ${
-              !options.methods || options.methods.includes("webauthn")
+              !parsedOptions.methods ||
+              parsedOptions.methods.includes("webauthn")
                 ? `
                   <div class="${
                     styles.card
-                  }" data-card="webauthn" style="width: calc((100% / ${options
+                  }" data-card="webauthn" style="width: calc((100% / ${parsedOptions
                     .methods?.length ?? 3}) - 15px)">
                     <div class="${styles.icon}">
                       <img src="${emailIcon}" alt="icon" />
@@ -1284,6 +1541,18 @@ class SDK {
       });
     });
 
+    document
+      .querySelectorAll<HTMLInputElement>(`.${styles.email}`)
+      .forEach(input => {
+        input.addEventListener("input", () => {
+          document
+            .querySelectorAll<HTMLInputElement>(`.${styles.email}`)
+            .forEach(otherInput => {
+              otherInput.value = input.value;
+            });
+        });
+      });
+
     btns.forEach(btn => {
       // eslint-disable-next-line @typescript-eslint/no-this-alias
       const self = this;
@@ -1299,21 +1568,44 @@ class SDK {
         ) as HTMLInputElement;
 
         if (this.dataset.btn === "login") {
-          if (options.methods?.length === 1) {
-            const [method] = options.methods;
+          const messages = {
+            title: "Pick your auth method",
+            push:
+              "Send me a push message to my Auth Armor authenticator to login",
+            magiclink: "Send me a magic link email to login",
+            webauthn: "Login using WebAuthn"
+          };
+
+          self.setCardText(messages);
+
+          if (parsedOptions.methods?.length === 1) {
+            const [method] = parsedOptions.methods;
             self.selectAuthMethod(method === "authenticator" ? "push" : method);
             return;
           }
 
-          if (options.methods?.includes("webauthn") && !loginUsername.value) {
+          if (
+            parsedOptions.methods?.includes("webauthn") &&
+            !loginUsername.value
+          ) {
             self.selectAuthMethod("webauthn");
             return;
           }
         }
 
         if (this.dataset.btn === "register") {
-          if (options.methods?.length === 1) {
-            const [method] = options.methods;
+          const messages = {
+            title: "Pick your registration method",
+            push:
+              "Send me a push message to my Auth Armor authenticator to register",
+            magiclink: "Send me a magic link email to register",
+            webauthn: "Register using WebAuthn"
+          };
+
+          self.setCardText(messages);
+
+          if (parsedOptions.methods?.length === 1) {
+            const [method] = parsedOptions.methods;
             const register: Record<AuthMethods, () => Promise<void>> = {
               magiclink: () => self.registerMagicLink(registerUsername.value),
               webauthn: () => self.registerWebAuthn(registerUsername.value),
@@ -1396,7 +1688,7 @@ class SDK {
       ?.addEventListener("input", e => {
         if (
           (e.target as HTMLInputElement).value?.trim() ||
-          options.methods?.includes("webauthn")
+          parsedOptions.methods?.includes("webauthn")
         ) {
           document
             .querySelector(`#login .${styles.btn}`)
@@ -1408,7 +1700,8 @@ class SDK {
         }
       });
 
-    if (options.methods?.includes("authenticator")) {
+    if (authenticatorEnabled) {
+      console.log("Getting usernameless data");
       this.requestAuth("usernameless");
       this.tickTimer();
     }
@@ -1416,10 +1709,12 @@ class SDK {
 
   setStyle = (styles: FormStyles): void => {
     const cssVariables: { [x: string]: string } = {
-      accentColor: "--accent-color",
-      backgroundColor: "--background-color",
-      tabColor: "--tab-color",
-      activeTabColor: "--active-tab-color"
+      accentColor: "--autharmor-accent-color",
+      backgroundColor: "--autharmor-background-color",
+      tabColor: "--autharmor-tab-color",
+      qrCodeBackground: "--autharmor-qr-code-background",
+      highlightColor: "--autharmor-highlight-color",
+      inputBackground: "--autharmor-input-background"
     };
 
     Object.entries(styles).map(([key, value]) => {

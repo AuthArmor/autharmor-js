@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./css/index.css" />
     <title>Document</title>
   </head>
@@ -49,19 +55,22 @@
       </aside>
       <div class="form"></div>
     </div>
-    <script src="../build/index.umd.js"></script>
+    <script src="./build/index.umd.js"></script>
     <script>
       (async () => {
         let selectedMethods = ["authenticator", "webauthn", "magiclink"];
         const AuthArmor = new window.AuthArmorSDK({
           endpointBasePath: "http://localhost:8000/auth/autharmor", // (Optional) Your backend URL goes here
-          polling: true,
           publicKey:
             "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjhiNzhkYTFmLWU4NWEtNDg4Ny05MmQxLTcyNWZlNTg3MGFiZCJ9.eyJrZXkiOiJudXRnYWo4aHRnNzQ2Y3pjd3dxbXhhN2ZrODR0OXNuaiIsImlhdCI6MTY0OTc3ODE4M30.Sb2jD9UqU87KiE5RigGK7t4MprMLZilRy-Dq39A1qAjpCZ0ta6HD1FmNNzUuXMEYkdQGUxdgRch6To4cXMNHRA",
-          webauthnClientId: "1bd515ee-c7d5-4e19-ba6e-348f9a785f19"
+          webauthnClientId: "1bd515ee-c7d5-4e19-ba6e-348f9a785f19",
+          registerRedirectUrl: "http://localhost:3000/magic-register",
+          authenticationRedirectUrl: "http://localhost:3000/magic-login"
         });
 
-        AuthArmor.form.mount(".form");
+        AuthArmor.form.mount(".form", {
+          usernameless: true // Toggle usernameless auth
+        });
 
         document.querySelector(".config-btn").addEventListener("click", () => {
           document.querySelector(".sidenav").classList.toggle("active");

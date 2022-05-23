@@ -792,10 +792,10 @@ atob@^2.1.2:
   resolved "https://registry.yarnpkg.com/atob/-/atob-2.1.2.tgz#6d9517eb9e030d2436666651e86bd9f6f13533c9"
   integrity sha512-Wm6ukoaOGJi/73p/cl2GvLjTI5JM1k/O14isD73YML8StrH/7/lRFgmg8nICZgD3bZZvjwCGxtMOD3wWNAu8cg==
 
-autharmor-webauthn-sdk@^1.0.3:
-  version "1.0.3"
-  resolved "https://registry.yarnpkg.com/autharmor-webauthn-sdk/-/autharmor-webauthn-sdk-1.0.3.tgz#7e2d0f4a0be61729118914f0f5cea890a5b002a9"
-  integrity sha512-X0JVRoysrZfApTlu5fPIDmmrWk6cbil18InC85h1c6JmXPosDl2D8CyKAJbmNTnVjCYKL5VMEdWhziTK+ja3iA==
+autharmor-webauthn-sdk@^1.0.8:
+  version "1.0.8"
+  resolved "https://registry.yarnpkg.com/autharmor-webauthn-sdk/-/autharmor-webauthn-sdk-1.0.8.tgz#2492dbdb3cc5a49a712fc5bc5c65504868bfa8d5"
+  integrity sha512-NLHdfQY0grWl1DWeKVLKZ2NZEPWKSmXFsSs4MXBVl3hIUlmU1K+GokvXIVfn73HXpLCStjp+gd4exYEWb31FKA==
   dependencies:
     kjua "^0.6.0"
     redaxios "^0.4.1"
