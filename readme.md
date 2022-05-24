@@ -30,7 +30,7 @@ In order to initialize the SDK, you'll have to create a new instance of the Auth
 
 ```javascript
 const SDK = new AuthArmorSDK({
-  endpointBasePath: "https://api.example.com/auth/autharmor", // (Required) specify your backend's url
+  endpointBasePath: "https://api.example.com/auth/autharmor", // (Optional) specify your backend's url
   publicKey: "...", // (Required) Specify the public-key you've generated from the AuthArmor Dashboard
   webauthnClientId: "...", // (Optional) Specify the WebAuthn Client ID you've generated from the AuthArmor Dashboard
   registerRedirectUrl: "...", // (Optional) Specify the URL that you'd like to redirect the user to after registering
