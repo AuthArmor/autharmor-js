@@ -101,15 +101,13 @@ There are several events emitted by the SDK which you can attach to and have you
 
 ### Available Events
 
-| Event Name         | Description                                                                |
-| ------------------ | -------------------------------------------------------------------------- |
-| inviteWindowOpened | Triggered as soon as the invite popup window is open                       |
-| popupOverlayOpened | Triggered once the AuthArmor overlay for invite/auth shows                 |
-| popupOverlayClosed | Triggered once the AuthArmor overlay for invite/auth is removed            |
-| inviteWindowClosed | Triggered as soon as the invite popup window is closed                     |
-| inviteAccepted     | Triggered once a user opens the invite popup and accepts it                |
-| inviteCancelled    | Triggered once a user opens the invite popup and presses the cancel button |
-| error              | Triggered once an error occurs while accepting/declining an invite         |
+| Event Name         | Description                                                        |
+| ------------------ | ------------------------------------------------------------------ |
+| popupOverlayOpened | Triggered once the AuthArmor overlay for invite/auth shows         |
+| popupOverlayClosed | Triggered once the AuthArmor overlay for invite/auth is removed    |
+| authenticated      | Triggered once an authentication is completed successfully         |
+| registerSuccess    | Triggered once a registration is completed successfully            |
+| error              | Triggered once an error occurs while accepting/declining an invite |
 
 ### Attaching an event listener
 

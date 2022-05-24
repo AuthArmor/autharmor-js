@@ -743,10 +743,6 @@ class SDK {
         ...body,
         auth_request_id: body.auth_request_id
       });
-      this.executeEvent("authenticated", {
-        ...body,
-        auth_request_id: body.auth_request_id
-      });
     }
 
     if (this.pollTimerId) {
