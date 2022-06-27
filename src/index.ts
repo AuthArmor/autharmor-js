@@ -74,7 +74,7 @@ interface AuthenticateResponseSuccess {
   nickname: string;
   token: string;
   authorized: true;
-  status: "Success" | "Timeout" | "Declined";
+  status: "Success" | "timeout" | "Declined";
   /* Custom response received from auth server */
   metadata?: any;
 }
@@ -83,7 +83,7 @@ interface AuthenticateResponseFail {
   response: any;
   nickname: string;
   authorized: false;
-  status: "Success" | "Timeout" | "Declined";
+  status: "Success" | "timeout" | "Declined";
   /* Custom response received from auth server */
   metadata?: any;
 }
@@ -168,6 +168,22 @@ declare global {
 
 const $ = (selectors: string) => document.querySelector(selectors);
 
+const isMobile = () => {
+  const toMatch = [
+    /Android/i,
+    /webOS/i,
+    /iPhone/i,
+    /iPad/i,
+    /iPod/i,
+    /BlackBerry/i,
+    /Windows Phone/i
+  ];
+
+  return toMatch.some(toMatchItem => {
+    return navigator.userAgent.match(toMatchItem);
+  });
+};
+
 class SDK {
   private url: string;
   private publicKey?: string;
@@ -237,6 +253,7 @@ class SDK {
       "inviteDeclined",
       "inviteExists",
       "inviteCancelled",
+      "registerSuccess",
       "error"
     ];
     this.eventListeners = new Map<Events, EventListener[]>(
@@ -309,7 +326,6 @@ class SDK {
 
   private showPopup = (message = "Waiting for device", hideQRBtn?: boolean) => {
     const popupOverlay = document.querySelector(`.${styles.popupOverlay}`);
-    const authMessage = document.querySelector(`.${styles.authMessageText}`);
     const showQRCodeBtn = document.querySelector(
       `.${styles.showPopupQrcodeBtn}`
     );
@@ -331,8 +347,8 @@ class SDK {
       popupOverlay.classList.remove(styles.hidden);
     }
 
-    if (authMessage) {
-      authMessage.textContent = message;
+    if (message) {
+      this.updateMessage(message, "success");
     }
 
     this.executeEvent("popupOverlayOpened");
@@ -348,6 +364,7 @@ class SDK {
       const visualVerifyElement = $(
         `.${styles.visualVerifyIcon}`
       ) as HTMLDivElement;
+      const authArmorIcon = $(`.${styles.autharmorIcon}`) as HTMLImageElement;
 
       if (popupOverlay) {
         popupOverlay.classList.add(styles.hidden);
@@ -365,6 +382,14 @@ class SDK {
           if (authMessageText) {
             authMessageText.textContent = "Waiting for device";
           }
+
+          if (authArmorIcon) {
+            authArmorIcon.src = logo;
+          }
+
+          document
+            .querySelector(`.${styles.authNotice}`)
+            ?.classList.add(styles.hidden);
         }, 200);
       }
     }, delay);
@@ -452,6 +477,7 @@ class SDK {
               <p class="${styles.qrCodeImgDesc}">Please scan the code with the AuthArmor app</p>
             </div>
           </div>
+          <div class="${styles.authNotice} ${styles.hidden}">This dialog will close once you have successfully paired the app</div>
           <div class="${styles.authMessage}"><span class="${styles.authMessageText}">Authenticating with AuthArmor...</span><span class="${styles.pulse}"></span></div>
           <div class="${styles.showPopupQrcodeBtn}">
             <p class="${styles.qrcodeBtnText}">Didn't get the push notification? Click here to scan a QR code instead</p>
@@ -548,7 +574,72 @@ class SDK {
     };
   }
 
-  private selectTab = (event: MouseEvent, tabName = ""): void => {
+  private updateModalText = (tabName: "register" | "login" = "login") => {
+    const text = {
+      register: {
+        push: {
+          title: "Mobile Phone Biometrics",
+          desc: "Link your phone for fast logins and great security"
+        },
+        magiclink: {
+          title: "MagicLink Email",
+          desc: "Send me a magic link email to register"
+        },
+        webauthn: {
+          title: "WebAuthN",
+          desc: "Register using your local device or security key"
+        }
+      },
+      login: {
+        push: {
+          title: "Push Message",
+          desc: "Send me a push message to my Auth Armor Authenticator"
+        },
+        magiclink: {
+          title: "MagicLink Email",
+          desc: "Send me a magic link email"
+        },
+        webauthn: {
+          title: "WebAuthN",
+          desc: "Authenticate using my local device or security key"
+        }
+      }
+    };
+
+    const currentText = text[tabName];
+
+    if (document.querySelector(`[data-card='push']`)) {
+      document.querySelector(
+        `[data-card='push'] .${styles.title}`
+      )!.textContent = currentText.push.title;
+      document.querySelector(
+        `[data-card='push'] .${styles.text}`
+      )!.textContent = currentText.push.desc;
+    }
+
+    if (document.querySelector(`[data-card='magiclink']`)) {
+      document.querySelector(
+        `[data-card='magiclink'] .${styles.title}`
+      )!.textContent = currentText.magiclink.title;
+      document.querySelector(
+        `[data-card='magiclink'] .${styles.text}`
+      )!.textContent = currentText.magiclink.desc;
+    }
+
+    if (document.querySelector(`[data-card='webauthn']`)) {
+      document.querySelector(
+        `[data-card='webauthn'] .${styles.title}`
+      )!.textContent = currentText.webauthn.title;
+      document.querySelector(
+        `[data-card='webauthn'] .${styles.text}`
+      )!.textContent = currentText.webauthn.desc;
+    }
+  };
+
+  private selectTab = (
+    event: MouseEvent,
+    tabName: "register" | "login"
+  ): void => {
     const tabContent = document.getElementsByClassName(
       styles.tabContent
     ) as HTMLCollectionOf<HTMLDivElement>;
@@ -573,13 +664,20 @@ class SDK {
       const target = event.target as HTMLDivElement;
       target.classList.add(styles.activeTab);
     }
+
+    this.updateModalText(tabName);
   };
 
   private closeModal = () => {
     const modal = document.querySelector(`.${styles.modal}`);
+    const authNotice = document.querySelector(`.${styles.authNotice}`);
 
     if (modal) {
       modal.classList.add(styles.hidden);
+    }
+
+    if (authNotice) {
+      authNotice.classList.add(styles.hidden);
     }
   };
 
@@ -712,7 +810,10 @@ class SDK {
       document
         .querySelector(`.${styles.qrCodeTimeout}`)
         ?.classList.remove(styles.hidden);
-      this.hasCalledValidate = true;
+      document
+        .querySelector(`.${styles.mobileUsernameless}`)
+        ?.classList.add(styles.hidden);
+      this.hasCalledValidate = false;
       this.executeEvent("error", body);
       return;
     }
@@ -723,6 +824,7 @@ class SDK {
     ) {
       console.log("Polling Invite...");
       this.pollTimerId = setTimeout(() => {
+        this.hasCalledValidate = false;
         this.getEnrollmentStatus({ id, pollDuration, expirationDate });
       }, pollDuration);
       return;
@@ -730,7 +832,7 @@ class SDK {
 
     console.log(
       body,
-      body?.auth_response_message === "Timeout",
+      body?.auth_response_message === "timeout",
       this.hasCalledValidate
     );
 
@@ -738,59 +840,74 @@ class SDK {
       body.enrollment_status !== "not_enrolled_or_not_found" &&
       !this.hasCalledValidate
     ) {
+      this.hasCalledValidate = true;
       // TODO: Do something on success
       this.executeEvent("registerSuccess", {
         ...body,
-        auth_request_id: body.auth_request_id
+        auth_method: "AuthArmorAuthenticator",
+        id
       });
+      this.updateMessage("Registered successfully!", "success");
+      this.hidePopup(2000);
     }
 
     if (this.pollTimerId) {
       clearTimeout(this.pollTimerId);
     }
-
-    this.hasCalledValidate = true;
   };
 
   private getRequestStatus = async ({
     id = "",
-    pollDuration = 2000
+    pollDuration = 2000,
+    usernameless = false
   } = {}): Promise<void> => {
     const body = await this.fetch(
       `${this.debug.url}/api/v3/auth/request/status/${id}?apikey=${this.publicKey}`,
       {
         method: "GET"
       }
-    ).then(response => response.json());
+    )
+      .then(response => response.json())
+      .catch(err => console.error(err));
 
-    if (pollDuration && !body?.auth_response_message) {
+    if (
+      pollDuration &&
+      (!body?.auth_response_message ||
+        body?.auth_request_status_name === "pending_approval")
+    ) {
       this.pollTimerId = setTimeout(() => {
-        this.getRequestStatus({ id, pollDuration });
+        this.hasCalledValidate = false;
+        this.getRequestStatus({ id, pollDuration, usernameless });
       }, pollDuration);
       return;
     }
 
-    console.log(
-      body,
-      body?.auth_response_message === "Timeout",
-      this.hasCalledValidate
-    );
-
-    if (body?.auth_response_message === "Success" && !this.hasCalledValidate) {
+    if (
+      body?.auth_request_status_name === "pending_validation" &&
+      body?.auth_response_message !== "Timeout" &&
+      !this.hasCalledValidate &&
+      !usernameless
+    ) {
       // TODO: Do something on success
-      this.executeEvent("authenticated", body);
+      this.hasCalledValidate = true;
+      this.executeEvent("authenticated", { ...body, id });
+      this.updateMessage("Authenticated successfully!", "success");
+      this.hidePopup(2000);
     }
 
     if (body?.auth_response_message === "Timeout" && !this.hasCalledValidate) {
       document
         .querySelector(`.${styles.qrCodeTimeout}`)!
         .classList.remove(styles.hidden);
+      document
+        .querySelector(`.${styles.mobileUsernameless}`)
+        ?.classList.add(styles.hidden);
+      this.hasCalledValidate = false;
     }
 
     if (this.pollTimerId) {
       clearTimeout(this.pollTimerId);
     }
-    this.hasCalledValidate = true;
   };
 
   registerAuthenticator = async (username: string) => {
@@ -805,6 +922,9 @@ class SDK {
       registration_redirect_url: "http://localhost:3000/magic-register"
     };
 
+    document
+      .querySelector(`.${styles.authNotice}`)
+      ?.classList.remove(styles.hidden);
     this.showPopup("Loading QR Code...", true);
 
     const response = await this.fetch(
@@ -875,10 +995,14 @@ class SDK {
       const inputErrorMessage = document.querySelector(
         `#register .${styles.inputErrorMessage}`
       );
+      const pushNotice = $(`.${styles.pushNotice}`);
+      const autharmorIcon = $(`.${styles.autharmorIcon}`) as HTMLImageElement;
+
+      this.showPopup("Please check your email", true);
 
       if (
         !username ||
-        !/^\w+([\.-]?\w\++)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(username)
+        !/^\w+([\.\+-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(username)
       ) {
         const errorMessage = "Please specify a valid email";
         document
@@ -894,6 +1018,12 @@ class SDK {
         }
 
         return;
+      }
+
+      if (pushNotice && autharmorIcon) {
+        pushNotice.textContent =
+          "We've sent a registration email to the address you specified";
+        autharmorIcon.src = emailIcon;
       }
 
       const timeoutSeconds = 120;
@@ -965,7 +1095,7 @@ class SDK {
 
     pushNotice.textContent = "Attestation in progress";
     qrCodeBtn.textContent = "Click here to scan a QR code instead";
-    this.showPopup("Authenticating with WebAuthn");
+    this.showPopup("Authenticating with WebAuthn", true);
 
     try {
       // TODO: Customize auth payload
@@ -1029,10 +1159,22 @@ class SDK {
         throw new Error(finishBody?.errorMessage);
       }
 
-      this.updateMessage("Authenticated successfully!", "success");
+      this.updateMessage("Registered successfully!", "success");
       this.hidePopup(2000);
+      this.executeEvent("registerSuccess", {
+        ...finishBody,
+        auth_method: "WebAuthn",
+        id: startBody.registration_id
+      });
     } catch (err) {
-      this.updateMessage(err.message, "danger");
+      this.updateMessage(
+        err.message.includes(
+          "The operation either timed out or was not allowed."
+        )
+          ? "User cancelled request"
+          : err.message,
+        "danger"
+      );
       this.hidePopup(2000);
     }
   };
@@ -1047,7 +1189,7 @@ class SDK {
 
     pushNotice.textContent = "Attestation in progress";
     qrCodeBtn.textContent = "Click here to scan a QR code instead";
-    this.showPopup("Authenticating with WebAuthn");
+    this.showPopup("Authenticating with WebAuthn", true);
 
     try {
       // TODO: Customize auth payload
@@ -1116,6 +1258,12 @@ class SDK {
         throw new Error(finishBody?.errorMessage);
       }
 
+      this.executeEvent("authenticated", {
+        ...finishBody,
+        auth_method: "WebAuthn",
+        id: startBody?.auth_request_id
+      });
+
       this.updateMessage("Authenticated successfully!", "success");
       this.hidePopup(2000);
     } catch (err) {
@@ -1132,7 +1280,7 @@ class SDK {
         .classList.remove(styles.hidden);
       this.hasCalledValidate = false;
 
-      const timeoutSeconds = 30;
+      const timeoutSeconds = 60;
       // TODO: Customize auth payload
       const payload = {
         action_name: "Login",
@@ -1148,6 +1296,9 @@ class SDK {
       document
         .querySelector(`#login .${styles.inputContainer}`)!
         .classList.remove(styles.invalid);
+      document
+        .querySelector(`.${styles.mobileUsernameless}`)
+        ?.classList.remove(styles.hidden);
       document
         .querySelector(`.${styles.qrCodeTimeout}`)
         ?.classList.add(styles.hidden);
@@ -1189,27 +1340,38 @@ class SDK {
         return;
       }
 
-      const qrCode = kjua({
-        text: body.qr_code_data.replace("autharmor.com", "autharmor.dev"),
-        rounded: 10,
-        back: "#202020",
-        fill: "#2cb2b5"
-      });
-      const popupQRCode = document.querySelector(`.${styles.qrCodeImg}`);
-      popupQRCode?.classList.remove(styles.hidden);
-      popupQRCode?.setAttribute("src", qrCode.src);
+      if (body.qr_code_data) {
+        const qrCode = kjua({
+          text: body.qr_code_data.replace("autharmor.com", "autharmor.dev"),
+          rounded: 10,
+          back: "#202020",
+          fill: "#2cb2b5"
+        });
+        const popupQRCode = document.querySelector(`.${styles.qrCodeImg}`);
+        popupQRCode?.classList.remove(styles.hidden);
+        popupQRCode?.setAttribute("src", qrCode.src);
 
-      if (type === "usernameless") {
-        const qrCodeImg = document.querySelector(
-          `.${styles.usernamelessQrImg}`
-        ) as HTMLImageElement;
-        qrCodeImg?.setAttribute("src", qrCode.src);
+        if (type === "usernameless") {
+          const qrCodeImg = document.querySelector(
+            `.${styles.usernamelessQrImg}`
+          ) as HTMLImageElement;
+          qrCodeImg?.setAttribute("src", qrCode.src);
+          document
+            .querySelector(`.${styles.mobileUsernameless}`)
+            ?.classList.remove(styles.hidden);
+          document
+            .querySelector(`.${styles.mobileUsernamelessBtn}`)
+            ?.setAttribute(
+              "href",
+              body.qr_code_data.replace("autharmor.com", "autharmor.dev")
+            );
 
-        this.expirationDate = Date.now() + body.timeout_in_seconds * 1000;
-        if (this.tickTimerId) {
-          clearTimeout(this.tickTimerId);
+          this.expirationDate = Date.now() + body.timeout_in_seconds * 1000;
+          if (this.tickTimerId) {
+            clearTimeout(this.tickTimerId);
+          }
+          this.tickTimer();
         }
-        this.tickTimer();
       }
 
       if (this.pollTimerId) {
@@ -1217,7 +1379,8 @@ class SDK {
       }
       this.getRequestStatus({
         id: body.auth_request_id,
-        pollDuration: 1000
+        pollDuration: 1000,
+        usernameless: type === "usernameless"
       });
       document
         .querySelector(`.${styles.loadingOverlay}`)!
@@ -1230,6 +1393,8 @@ class SDK {
       document
         .querySelector(`.${styles.criticalError}`)!
         .classList.remove(styles.hidden);
+      this.updateMessage("An unknown error has occurred", "danger");
+      this.hidePopup();
     }
   };
 
@@ -1264,7 +1429,7 @@ class SDK {
     if (type === "magiclink") {
       if (
         !email.value ||
-        !/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email.value)
+        !/^\w+([\.\+-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email.value)
       ) {
         const errorMessage = "Please specify a valid email";
         document
@@ -1287,14 +1452,14 @@ class SDK {
       pushNotice.textContent = "We've sent a magic link to your email";
       qrCodeBtn.textContent =
         "Didn't get the magic link? Click here to scan a QR code instead";
-      this.showPopup("Please check your email");
+      this.showPopup("Please check your email", true);
     }
 
     if (type === "webauthn") {
       pushNotice.textContent = "Assertion in progress";
       qrCodeBtn.textContent = "Click here to scan a QR code instead";
       document.querySelector(`.${styles.modal}`)!.classList.add(styles.hidden);
-      this.showPopup("Please complete assertion");
+      this.showPopup("Please complete assertion", true);
       this.loginWebAuthn(email.value);
       return;
     }
@@ -1314,10 +1479,11 @@ class SDK {
         document.querySelector(`.${styles.modalHeader}`)!.textContent = value;
         return value;
       }
-
-      document.querySelector(
-        `[data-card="${key}"] .${styles.text}`
-      )!.textContent = value;
+      if (document.querySelector(`[data-card="${key}"] .${styles.text}`)) {
+        document.querySelector(
+          `[data-card="${key}"] .${styles.text}`
+        )!.textContent = value;
+      }
     });
   };
 
@@ -1383,12 +1549,22 @@ class SDK {
                     </p>
                     <div class="${styles.qrCode}">
                       <img src="" alt="" class="${styles.usernamelessQrImg}">
+                      ${
+                        isMobile()
+                          ? `<div class="${styles.mobileUsernameless}">
+                               <p class="${styles.mobileUsernamelessTitle}">Usernameless login</p>
+                               <a class="${styles.mobileUsernamelessBtn}">Login with App</a>
+                             </div>`
+                          : ""
+                      }
                       <div class="${styles.qrCodeTimeout} ${styles.hidden}">
                         <div class="${styles.timeoutHead}">Code timed out!</div>
                         <div class="${styles.timeoutBtn}">Refresh Code</div>
                       </div>
                     </div>
-                    <p class="${styles.desc}">Scan this QR code using the app to sign in</p>
+                    <p class="${
+                      styles.desc
+                    }">Scan this QR code using the app to sign in</p>
                     <div class="${styles.timerContainer}">
                       <p class="${styles.timer}">00:43</p>
                       <div class="${styles.refresh}">
@@ -1533,7 +1709,7 @@ class SDK {
       // eslint-disable-next-line @typescript-eslint/no-this-alias
       const self = this;
       tab.addEventListener("click", function(e) {
-        self.selectTab(e, this.dataset.tab);
+        self.selectTab(e, this.dataset.tab as "register" | "login");
       });
     });
 
@@ -1701,6 +1877,8 @@ class SDK {
       this.requestAuth("usernameless");
       this.tickTimer();
     }
+
+    this.updateModalText();
   };
 
   setStyle = (styles: FormStyles): void => {
@@ -1965,7 +2143,7 @@ class SDK {
       return true;
     }
 
-    if (!authResponse.authorized && responseMessage === "Timeout") {
+    if (!authResponse.authorized && responseMessage === "timeout") {
       this.updateMessage("Authentication request timed out", "warn");
       onFailure?.({
         ...authResponse,

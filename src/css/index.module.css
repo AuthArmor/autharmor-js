@@ -34,7 +34,9 @@
   display: block;
   position: absolute;
   width: calc(var(--autharmor-loader-size) * var(--autharmor-loader-gap-ratio));
-  height: calc(var(--autharmor-loader-size) * var(--autharmor-loader-gap-ratio));
+  height: calc(
+    var(--autharmor-loader-size) * var(--autharmor-loader-gap-ratio)
+  );
   margin: 8px;
   border: 8px solid #fff;
   border-radius: 50%;
@@ -59,6 +61,10 @@
   }
 }
 
+.container {
+  text-align: center;
+}
+
 .container * {
   font-family: "Montserrat", sans-serif;
   box-sizing: border-box;
@@ -70,7 +76,8 @@
 
 .content {
   position: relative;
-  width: 540px;
+  max-width: 540px;
+  width: 100%;
   border-radius: 10px;
   overflow: hidden;
   color: white;
@@ -268,6 +275,17 @@ input.email::placeholder {
   transition: all 0.3s ease;
 }
 
+@media (max-width: 620px) {
+  .modal {
+    align-items: flex-start;
+    padding: 20px;
+  }
+  .modal-container {
+    overflow: auto;
+    max-height: 100%;
+  }
+}
+
 .loading-overlay {
   position: absolute;
   width: 100%;
@@ -307,7 +325,6 @@ p.modal-header {
 .cards {
   display: flex;
   justify-content: space-between;
-  overflow: hidden;
 }
 
 .card {
@@ -316,12 +333,10 @@ p.modal-header {
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  width: calc(49%);
   cursor: pointer;
   border-radius: 5px;
   background: var(--autharmor-highlight-color);
   transition: all 0.3s ease;
-  overflow: hidden;
 }
 
 @media (max-width: 620px) {
@@ -330,7 +345,7 @@ p.modal-header {
   }
 
   .card {
-    width: 100%;
+    width: 100% !important;
     margin-bottom: 20px;
   }
 
@@ -470,6 +485,37 @@ p.modal-header {
   height: 200px;
   object-fit: contain;
   transition: all 0.2s ease;
+}
+
+p.mobileUsernamelessTitle {
+  font-weight: bold;
+  margin-bottom: 10px;
+  font-size: 17px;
+}
+
+.mobileUsernamelessBtn {
+  display: flex;
+  padding: 5px 15px;
+  border-radius: 15px;
+  background-color: var(--autharmor-accent-color);
+  font-weight: bold;
+  font-size: 14px;
+  color: white;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mobileUsernameless {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.85);
 }
 
 .qr-code-timeout {
@@ -659,7 +705,7 @@ img[src=""] {
 }
 
 img.qr-code-img {
-  height: 130px;
+  height: 160px;
   margin-bottom: 10px;
 }
 
@@ -683,6 +729,21 @@ img.qr-code-img {
   pointer-events: none;
   transition: all 0.3s ease;
   z-index: 2;
+}
+
+.popup-overlay .auth-notice {
+  width: 100%;
+  padding: 7px 12px;
+  background-color: #40454e;
+  font-family: "Montserrat";
+  font-weight: 600;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.popup-overlay .auth-notice.hidden {
+  display: none;
 }
 
 .popup-overlay .auth-message {
