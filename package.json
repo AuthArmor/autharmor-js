@@ -22,6 +22,7 @@
     "@babel/plugin-proposal-class-properties": "^7.5.5",
     "@babel/plugin-proposal-nullish-coalescing-operator": "^7.8.3",
     "@babel/plugin-proposal-optional-chaining": "^7.11.0",
+    "@types/uuid": "^8.3.4",
     "@typescript-eslint/eslint-plugin": "^4.28.2",
     "@typescript-eslint/parser": "^4.28.2",
     "babel-eslint": "^10.1.0",
@@ -53,8 +54,10 @@
   "dependencies": {
     "autharmor-webauthn-sdk": "^1.0.8",
     "kjua": "^0.6.0",
+    "recaptcha-v3": "^1.10.0",
     "redaxios": "^0.4.1",
-    "string-to-color": "^2.2.2"
+    "string-to-color": "^2.2.2",
+    "uuid": "^8.3.2"
   },
   "husky": {
     "hooks": {

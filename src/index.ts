@@ -10,10 +10,12 @@ import refreshIcon from "./assets/refresh.svg";
 import phoneIcon from "./assets/phone.svg";
 import emailIcon from "./assets/email.svg";
 import WebAuthnSDK from "autharmor-webauthn-sdk";
+import { ReCaptchaInstance, load } from "recaptcha-v3";
+import { v4 as uuidv4 } from "uuid";
 
 type Events =
   | "authenticating"
-  | "authenticated"
+  | "authSuccess"
   | "inviteWindowOpened"
   | "inviteWindowClosed"
   | "popupOverlayOpened"
@@ -119,9 +121,34 @@ interface FormStyles {
   qrCodeBackground: string;
 }
 
+interface Preferences {
+  action_name: string;
+  username: string;
+  short_msg: string;
+  timeout_in_seconds: number;
+  origin_location_data: LocationData;
+}
+
+interface AuthenticatorPreferences extends Preferences {
+  send_push: boolean;
+}
+
+interface FormAuthTypePreferences {
+  default?: Partial<AuthenticatorPreferences>;
+  authenticator?: Partial<AuthenticatorPreferences>;
+  magicLink?: Partial<Preferences>;
+  webauthn?: Partial<Preferences>;
+}
+
+interface FormPreferences {
+  register: FormAuthTypePreferences;
+  login: FormAuthTypePreferences;
+}
+
 interface FormMountOptions {
   methods?: AuthMethods[];
   usernameless?: boolean;
+  preferences?: Partial<FormPreferences>;
   styles?: Partial<FormStyles>;
 }
 
@@ -160,28 +187,14 @@ declare global {
     AuthArmorSDK: any;
     AuthArmor: any;
   }
-
-  interface Crypto {
-    randomUUID: () => string;
-  }
 }
 
 const $ = (selectors: string) => document.querySelector(selectors);
 
 const isMobile = () => {
-  const toMatch = [
-    /Android/i,
-    /webOS/i,
-    /iPhone/i,
-    /iPad/i,
-    /iPod/i,
-    /BlackBerry/i,
-    /Windows Phone/i
-  ];
+  const toMatch = /(Android|iPhone|iPad|iPod)/i;
 
-  return toMatch.some(toMatchItem => {
-    return navigator.userAgent.match(toMatchItem);
-  });
+  return navigator.userAgent.match(toMatch);
 };
 
 class SDK {
@@ -200,13 +213,17 @@ class SDK {
   private hasCalledValidate = false;
   private registerRedirectUrl?: string;
   private authenticationRedirectUrl?: string;
+  private preferences?: FormPreferences;
+  private recaptcha?: ReCaptchaInstance;
+  private recaptchaSiteKey = "";
+  private customOptions?: Partial<Preferences>;
   private debug: DebugSettings = {
     url: "https://auth.autharmor.dev"
   };
 
   constructor({
     endpointBasePath = "",
-    publicKey = "",
+    clientSdkApiKey = "",
     webauthnClientId = "",
     registerRedirectUrl = "",
     authenticationRedirectUrl = "",
@@ -222,7 +239,7 @@ class SDK {
       this.authenticationRedirectUrl = authenticationRedirectUrl;
     }
 
-    if (!publicKey) {
+    if (!clientSdkApiKey) {
       throw new Error("Please specify a valid public key!");
     }
 
@@ -232,7 +249,7 @@ class SDK {
       this.debug = debug;
     }
 
-    this.publicKey = publicKey;
+    this.publicKey = clientSdkApiKey;
     this.webauthnClientId = webauthnClientId;
     if (webauthnClientId) {
       this.webauthn = new WebAuthnSDK({
@@ -244,7 +261,7 @@ class SDK {
     // Supported events
     this.events = [
       "authenticating",
-      "authenticated",
+      "authSuccess",
       "inviteWindowOpened",
       "inviteWindowClosed",
       "popupOverlayOpened",
@@ -413,24 +430,57 @@ class SDK {
     listeners?.map(listener => listener(...data));
   };
 
-  private showPopupQRCode = () => {
+  private hideLoading = () => {
+    document
+      .querySelector(`.${styles.loadingOverlay}`)
+      ?.classList.add(styles.hidden);
+  };
+
+  private showLoading = () => {
+    document
+      .querySelector(`.${styles.loadingOverlay}`)
+      ?.classList.remove(styles.hidden);
+  };
+
+  private showPopupQRCode = (keepButton?: boolean) => {
     const showPopupQrBtn = $(`.${styles.showPopupQrcodeBtn}`);
     const hidePopupQrBtn = $(`.${styles.hidePopupQrcodeBtn}`);
     const authMessage = $(`.${styles.authMessage}`);
     const qrCodeContainer = $(`.${styles.qrCodeImgContainer}`);
     const autharmorIcon = $(`.${styles.autharmorIcon}`);
     const pushNotice = $(`.${styles.pushNotice}`);
+    const openBtn = $(
+      `.${styles.qrCodeMobile} .${styles.mobileUsernamelessBtn}`
+    );
 
     if (this.QRAnimationTimer) {
       clearTimeout(this.QRAnimationTimer);
     }
 
-    showPopupQrBtn?.classList.add(styles.hidden);
+    if (isMobile()) {
+      window.open((qrCodeContainer as HTMLDivElement).dataset.link, "_blank");
+    }
+
+    if (!keepButton) {
+      showPopupQrBtn?.classList.add(styles.hidden);
+    } else {
+      showPopupQrBtn?.classList.remove(styles.hidden);
+      showPopupQrBtn?.setAttribute(
+        "href",
+        (qrCodeContainer as HTMLDivElement).dataset.link!
+      );
+      openBtn?.setAttribute(
+        "href",
+        (qrCodeContainer as HTMLDivElement).dataset.link!
+      );
+    }
     autharmorIcon?.classList.add(styles.hidden);
     this.QRAnimationTimer = setTimeout(() => {
       qrCodeContainer?.classList.remove(styles.hidden);
-      hidePopupQrBtn?.classList.remove(styles.hidden);
-      authMessage?.classList.add(styles.rounded);
+      if (!keepButton) {
+        hidePopupQrBtn?.classList.remove(styles.hidden);
+        authMessage?.classList.add(styles.rounded);
+      }
       pushNotice?.classList.add(styles.hidden);
     }, 200);
   };
@@ -457,7 +507,31 @@ class SDK {
     }, 200);
   };
 
-  private init() {
+  private getSDKConfig = async () => {
+    try {
+      const config = await this.fetch(
+        `${this.debug.url}/api/v3/config/sdkinit?apikey=${this.publicKey}`
+      ).then(res => res.json());
+
+      console.log(config);
+
+      return {
+        recaptcha: {
+          enabled: config.google_v3_recaptcha_enabled,
+          siteId: config.google_v3_recpatcha_site_id
+        }
+      };
+    } catch (err) {
+      return {
+        recaptcha: {
+          enabled: false,
+          siteId: null
+        }
+      };
+    }
+  };
+
+  private init = async () => {
     document.body.innerHTML += `
       <div class="${styles.popupOverlay} ${styles.hidden}">
         <div class="${styles.popupOverlayContent}">
@@ -470,18 +544,58 @@ class SDK {
               <p class="${styles.popupQrcodeBtnText}">Hide QR Code</p>
             </div>
             <div class="${styles.visualVerifyIcon} ${styles.hidden}"></div>
-            <p class="${styles.pushNotice}">We've sent a push message to your device(s)</p>
-            <img src="${logo}" alt="AuthArmor Icon" class="${styles.autharmorIcon}" />
-            <div class="${styles.qrCodeImgContainer} ${styles.hidden}">
-              <img src="" alt="QR Code" class="${styles.qrCodeImg}" />
-              <p class="${styles.qrCodeImgDesc}">Please scan the code with the AuthArmor app</p>
+            <p class="${styles.pushNotice}">
+              We've sent a push message to your device(s)
+            </p>
+            <img
+              src="${logo}" 
+              alt="AuthArmor Icon" 
+              class="${styles.autharmorIcon}"
+            />
+            <div class="${styles.qrCodeImgContainer} ${styles.hidden} ${
+      isMobile() ? styles.qrCodeMobile : ""
+    }">
+              ${
+                isMobile()
+                  ? `
+                      <div class="${styles.mobileUsernameless}">
+                        <p class="${styles.mobileUsernamelessNote}">Your request has been initialized! You can click the button below to approve it through the app</p>
+                        <a target="_blank" rel="noopener noreferrer" class="${styles.mobileUsernamelessBtn}">Open request in app</a>
+                      </div>
+                    `
+                  : `
+                      <img src="" alt="QR Code" class="${styles.qrCodeImg}" />
+                      <p class="${styles.qrCodeImgDesc}">
+                        Please scan the code with the AuthArmor app
+                      </p>
+                    `
+              }
             </div>
           </div>
-          <div class="${styles.authNotice} ${styles.hidden}">This dialog will close once you have successfully paired the app</div>
-          <div class="${styles.authMessage}"><span class="${styles.authMessageText}">Authenticating with AuthArmor...</span><span class="${styles.pulse}"></span></div>
-          <div class="${styles.showPopupQrcodeBtn}">
-            <p class="${styles.qrcodeBtnText}">Didn't get the push notification? Click here to scan a QR code instead</p>
+          <div class="${styles.authNotice} ${styles.hidden}">
+            This dialog will close once you have successfully paired the app
           </div>
+          <div class="${styles.authMessage}">
+            <span class="${styles.authMessageText}">
+              Authenticating with AuthArmor...
+            </span>
+            <span class="${styles.pulse}"></span>
+          </div>
+          ${
+            isMobile()
+              ? `
+                  <a target="_blank" rel="noreferrer noopener" class="${styles.showPopupQrcodeBtn}">
+                    <p class="${styles.qrcodeBtnText}">Tap here to launch request in app</p>
+                  </a>
+                `
+              : `
+                  <a target="_blank" rel="noreferrer noopener" class="${styles.showPopupQrcodeBtn}">
+                    <p class="${styles.qrcodeBtnText}">
+                      Didn't get the push notification? Click here to scan a QR code instead
+                    </p>
+                  </a>
+                `
+          }
         </div>
       </div>
     `;
@@ -494,7 +608,7 @@ class SDK {
     const closePopupBtn = $(`.${styles.closePopupBtn}`);
     let timer: NodeJS.Timeout;
 
-    showPopupQrBtn?.addEventListener("click", this.showPopupQRCode);
+    showPopupQrBtn?.addEventListener("click", () => this.showPopupQRCode());
 
     hidePopupQrBtn?.addEventListener("click", this.hidePopupQRCode);
 
@@ -505,9 +619,7 @@ class SDK {
       qrCodeContainer?.classList.add(styles.hidden);
       autharmorIcon?.classList.remove(styles.hidden);
       showPopupQrBtn?.classList.remove(styles.hidden);
-      document
-        .querySelector(`.${styles.loadingOverlay}`)
-        ?.classList.add(styles.hidden);
+      this.hideLoading();
 
       const visualVerifyElement = $(
         `.${styles.visualVerifyIcon}`
@@ -572,7 +684,7 @@ class SDK {
 
       this.hidePopup();
     };
-  }
+  };
 
   private updateModalText = (tabName: "register" | "login" = "login") => {
     const text = {
@@ -757,7 +869,7 @@ class SDK {
 
   private getRequestSignature = async (url: string, body = "") => {
     const timestamp = new Date().toISOString();
-    const nonce = crypto?.randomUUID().replace(/-/g, "");
+    const nonce = uuidv4().replace(/-/g, "");
 
     const urlParser = document.createElement("a");
     urlParser.href = url;
@@ -803,7 +915,7 @@ class SDK {
     ).then(response => response.json());
 
     if (
-      body.enrollment_status === "not_enrolled_or_not_found" &&
+      body.authenticator_enrollment_status === "not_enrolled_or_not_found" &&
       expirationDate <= Date.now()
     ) {
       console.log("Invite Expired...");
@@ -820,7 +932,7 @@ class SDK {
 
     if (
       pollDuration &&
-      body.enrollment_status === "not_enrolled_or_not_found"
+      body.authenticator_enrollment_status === "not_enrolled_or_not_found"
     ) {
       console.log("Polling Invite...");
       this.pollTimerId = setTimeout(() => {
@@ -837,14 +949,18 @@ class SDK {
     );
 
     if (
-      body.enrollment_status !== "not_enrolled_or_not_found" &&
+      body.authenticator_enrollment_status !== "not_enrolled_or_not_found" &&
       !this.hasCalledValidate
     ) {
+      const registerUsername = document.querySelector(
+        `#register .${styles.email}`
+      ) as HTMLInputElement;
       this.hasCalledValidate = true;
       // TODO: Do something on success
       this.executeEvent("registerSuccess", {
         ...body,
         auth_method: "AuthArmorAuthenticator",
+        username: registerUsername.value,
         id
       });
       this.updateMessage("Registered successfully!", "success");
@@ -858,6 +974,7 @@ class SDK {
 
   private getRequestStatus = async ({
     id = "",
+    token = "",
     pollDuration = 2000,
     usernameless = false
   } = {}): Promise<void> => {
@@ -872,30 +989,33 @@ class SDK {
 
     if (
       pollDuration &&
-      (!body?.auth_response_message ||
-        body?.auth_request_status_name === "pending_approval")
+      body?.auth_request_status_id === 3 &&
+      body?.auth_response_code === 0
     ) {
       this.pollTimerId = setTimeout(() => {
         this.hasCalledValidate = false;
-        this.getRequestStatus({ id, pollDuration, usernameless });
+        this.getRequestStatus({ id, token, pollDuration, usernameless });
       }, pollDuration);
       return;
     }
 
     if (
-      body?.auth_request_status_name === "pending_validation" &&
-      body?.auth_response_message !== "Timeout" &&
-      !this.hasCalledValidate &&
-      !usernameless
+      body?.auth_request_status_id === 4 &&
+      body?.auth_response_code === 8 &&
+      !this.hasCalledValidate
     ) {
       // TODO: Do something on success
       this.hasCalledValidate = true;
-      this.executeEvent("authenticated", { ...body, id });
+      this.executeEvent("authSuccess", { ...body, id, token });
       this.updateMessage("Authenticated successfully!", "success");
       this.hidePopup(2000);
     }
 
-    if (body?.auth_response_message === "Timeout" && !this.hasCalledValidate) {
+    if (
+      body?.auth_request_status_id === 2 &&
+      body?.auth_response_code === 5 &&
+      !this.hasCalledValidate
+    ) {
       document
         .querySelector(`.${styles.qrCodeTimeout}`)!
         .classList.remove(styles.hidden);
@@ -911,80 +1031,96 @@ class SDK {
   };
 
   registerAuthenticator = async (username: string) => {
-    const timeoutSeconds = 120;
-    // TODO: Customize auth payload
-    const payload = {
-      action_name: "Login",
-      username,
-      short_msg: "Login pending - please authorize",
-      timeout_in_seconds: timeoutSeconds,
-      origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
-      registration_redirect_url: "http://localhost:3000/magic-register"
-    };
+    try {
+      const timeoutSeconds = 120;
+      // TODO: Customize auth payload
+      const payload = {
+        username,
+        ...this.preferences?.register.authenticator
+      };
 
-    document
-      .querySelector(`.${styles.authNotice}`)
-      ?.classList.remove(styles.hidden);
-    this.showPopup("Loading QR Code...", true);
-
-    const response = await this.fetch(
-      `${this.debug.url}/api/v3/users/register/authenticator/start?apikey=${this.publicKey}`,
-      {
-        headers: {
-          "Content-Type": "application/json"
-        },
-        method: "POST",
-        body: JSON.stringify(payload)
-      }
-    );
-
-    const body = await response.json();
-
-    if (response.status >= 400) {
-      const errorMessage = body.errorMessage || "An unknown error has occurred";
       document
-        .querySelector(`.${styles.loadingOverlay}`)!
-        .classList.add(styles.hidden);
-      document
-        .querySelector(`#register .${styles.inputContainer}`)!
-        .classList.add(styles.invalid);
-      document.querySelector(
-        `#register .${styles.inputErrorMessage}`
-      )!.textContent = errorMessage;
+        .querySelector(`.${styles.authNotice}`)
+        ?.classList.remove(styles.hidden);
+      this.showPopup("Loading QR Code...", true);
 
-      const modal = document.querySelector(`.${styles.modal}`);
+      const response = await this.fetch(
+        `${this.debug.url}/api/v3/users/register/authenticator/start?apikey=${this.publicKey}`,
+        {
+          headers: {
+            "Content-Type": "application/json"
+          },
+          method: "POST",
+          body: JSON.stringify(payload)
+        }
+      );
 
-      if (modal) {
-        modal.classList.add(styles.hidden);
+      console.log("Register response:", response.text);
+
+      const body = await response.json();
+
+      if (response.status >= 400) {
+        const errorMessage =
+          body.errorMessage || "An unknown error has occurred";
+        this.hideLoading();
+        document
+          .querySelector(`#register .${styles.inputContainer}`)!
+          .classList.add(styles.invalid);
+        document.querySelector(
+          `#register .${styles.inputErrorMessage}`
+        )!.textContent = errorMessage;
+
+        this.closeModal();
+
+        this.updateMessage(errorMessage, "danger");
+        this.hidePopup();
+        throw new Error(errorMessage);
       }
 
-      this.updateMessage(errorMessage, "danger");
-      this.hidePopup();
-      throw new Error(errorMessage);
+      console.log(body);
+
+      this.updateMessage("Please scan the QR Code with your phone");
+
+      const qrCode = kjua({
+        text: body.qr_code_data.replace("autharmor.com", "autharmor.dev"),
+        rounded: 10,
+        back: "#202020",
+        fill: "#2cb2b5"
+      });
+
+      const popupQRCode = document.querySelector(`.${styles.qrCodeImg}`);
+      if (popupQRCode) {
+        popupQRCode?.classList.remove(styles.hidden);
+        popupQRCode?.setAttribute("src", qrCode.src);
+
+        if (popupQRCode.parentElement) {
+          popupQRCode.parentElement.dataset.link = body.qr_code_data.replace(
+            "autharmor.com",
+            "autharmor.dev"
+          );
+        }
+      }
+
+      const mobileQRCode = $(`.${styles.qrCodeMobile}`) as HTMLElement;
+
+      if (mobileQRCode) {
+        mobileQRCode.dataset.link = body.qr_code_data.replace(
+          "autharmor.com",
+          "autharmor.dev"
+        );
+      }
+
+      this.showPopupQRCode(true);
+
+      this.getEnrollmentStatus({
+        id: body.user_id,
+        pollDuration: 2000,
+        expirationDate: Date.now() + timeoutSeconds * 1000
+      });
+    } catch (err) {
+      console.error(err);
+      throw err;
     }
-
-    console.log(body);
-
-    this.updateMessage("Please scan the QR Code with your phone");
-
-    const qrCode = kjua({
-      text: body.qr_code_data.replace("autharmor.com", "autharmor.dev"),
-      rounded: 10,
-      back: "#202020",
-      fill: "#2cb2b5"
-    });
-
-    const popupQRCode = document.querySelector(`.${styles.qrCodeImg}`);
-    popupQRCode?.classList.remove(styles.hidden);
-    popupQRCode?.setAttribute("src", qrCode.src);
-
-    this.showPopupQRCode();
-
-    this.getEnrollmentStatus({
-      id: body.user_id,
-      pollDuration: 2000,
-      expirationDate: Date.now() + timeoutSeconds * 1000
-    });
   };
 
   registerMagicLink = async (username: string): Promise<void> => {
@@ -1005,17 +1141,11 @@ class SDK {
         !/^\w+([\.\+-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(username)
       ) {
         const errorMessage = "Please specify a valid email";
-        document
-          .querySelector(`.${styles.loadingOverlay}`)!
-          .classList.add(styles.hidden);
+        this.hideLoading();
         container!.classList.add(styles.invalid);
         inputErrorMessage!.textContent = errorMessage;
 
-        const modal = document.querySelector(`.${styles.modal}`);
-
-        if (modal) {
-          modal.classList.add(styles.hidden);
-        }
+        this.closeModal();
 
         return;
       }
@@ -1026,14 +1156,10 @@ class SDK {
         autharmorIcon.src = emailIcon;
       }
 
-      const timeoutSeconds = 120;
       // TODO: Customize auth payload
       const payload = {
-        action_name: "Login",
+        ...this.preferences?.register.magicLink,
         email_address: username,
-        short_msg: "Login pending - please authorize",
-        timeout_in_seconds: timeoutSeconds,
-        origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
         registration_redirect_url: this.registerRedirectUrl
       };
 
@@ -1053,9 +1179,7 @@ class SDK {
       if (response.status >= 400) {
         const errorMessage =
           body.errorMessage || "An unknown error has occurred";
-        document
-          .querySelector(`.${styles.loadingOverlay}`)!
-          .classList.add(styles.hidden);
+        this.hideLoading();
         document
           .querySelector(`#register .${styles.inputContainer}`)!
           .classList.add(styles.invalid);
@@ -1063,11 +1187,7 @@ class SDK {
           `#register .${styles.inputErrorMessage}`
         )!.textContent = errorMessage;
 
-        const modal = document.querySelector(`.${styles.modal}`);
-
-        if (modal) {
-          modal.classList.add(styles.hidden);
-        }
+        this.closeModal();
 
         this.updateMessage(errorMessage, "danger");
         this.hidePopup();
@@ -1120,21 +1240,15 @@ class SDK {
       if (startResponse.status >= 400) {
         const errorMessage =
           startBody.errorMessage || "An unknown error has occurred";
-        document
-          .querySelector(`.${styles.loadingOverlay}`)!
-          .classList.add(styles.hidden);
+        this.hideLoading();
         document
           .querySelector(`#register .${styles.inputContainer}`)!
           .classList.add(styles.invalid);
         document.querySelector(
           `#register .${styles.inputErrorMessage}`
         )!.textContent = errorMessage;
-        const modal = document.querySelector(`.${styles.modal}`);
 
-        if (modal) {
-          modal.classList.add(styles.hidden);
-        }
-
+        this.closeModal();
         this.updateMessage(errorMessage, "danger");
         this.hidePopup();
         throw new Error(errorMessage);
@@ -1164,7 +1278,8 @@ class SDK {
       this.executeEvent("registerSuccess", {
         ...finishBody,
         auth_method: "WebAuthn",
-        id: startBody.registration_id
+        id: startBody.registration_id,
+        username
       });
     } catch (err) {
       this.updateMessage(
@@ -1214,21 +1329,15 @@ class SDK {
       if (startResponse.status >= 400) {
         const errorMessage =
           startBody.errorMessage || "An unknown error has occurred";
-        document
-          .querySelector(`.${styles.loadingOverlay}`)!
-          .classList.add(styles.hidden);
+        this.hideLoading();
         document
           .querySelector(`#login .${styles.inputContainer}`)!
           .classList.add(styles.invalid);
         document.querySelector(
           `#login .${styles.inputErrorMessage}`
         )!.textContent = errorMessage;
-        const modal = document.querySelector(`.${styles.modal}`);
 
-        if (modal) {
-          modal.classList.add(styles.hidden);
-        }
-
+        this.closeModal();
         this.updateMessage(errorMessage, "danger");
         this.hidePopup();
         return;
@@ -1258,10 +1367,11 @@ class SDK {
         throw new Error(finishBody?.errorMessage);
       }
 
-      this.executeEvent("authenticated", {
+      this.executeEvent("authSuccess", {
         ...finishBody,
         auth_method: "WebAuthn",
-        id: startBody?.auth_request_id
+        id: startBody?.auth_request_id,
+        token: finishBody?.auth_validation_token
       });
 
       this.updateMessage("Authenticated successfully!", "success");
@@ -1272,25 +1382,61 @@ class SDK {
     }
   };
 
-  // Authentication
-  requestAuth = async (type: AuthTypes, username?: string): Promise<void> => {
+  private getRecaptchaToken = async (
+    action: string,
+    tries = 0
+  ): Promise<string> => {
     try {
-      document
-        .querySelector(`.${styles.loadingOverlay}`)!
-        .classList.remove(styles.hidden);
+      console.log("this.recaptchaSiteKey:", this.recaptchaSiteKey);
+
+      if (!this.recaptchaSiteKey || tries >= 3) {
+        return "";
+      }
+
+      console.log("Loading Recaptcha...");
+
+      if (!this.recaptcha) {
+        this.recaptcha = await load(this.recaptchaSiteKey, {
+          useEnterprise: true
+        });
+      }
+
+      console.log("this.recaptcha:", this.recaptcha);
+
+      const token = await this.recaptcha.execute(action);
+
+      console.log("token:", token);
+
+      return token;
+    } catch (err) {
+      return this.getRecaptchaToken(action, tries + 1);
+    }
+  };
+
+  // Authentication
+  public requestAuth = async (
+    type: AuthTypes,
+    options?: Partial<Preferences>
+  ): Promise<void> => {
+    try {
+      this.showLoading();
       this.hasCalledValidate = false;
 
-      const timeoutSeconds = 60;
+      const parsedType: Record<AuthTypes, keyof FormAuthTypePreferences> = {
+        magiclink: "magicLink",
+        push: "authenticator",
+        webauthn: "webauthn",
+        usernameless: "authenticator"
+      };
+      const token = await this.getRecaptchaToken("auth");
       // TODO: Customize auth payload
       const payload = {
-        action_name: "Login",
-        username,
-        short_msg: "Login pending - please authorize",
-        timeout_in_seconds: timeoutSeconds,
-        origin_location_data: { latitude: "34.05349", longitude: "-118.24532" },
+        ...this.preferences?.login[parsedType[type]],
+        ...options,
         authentication_redirect_url:
           type === "magiclink" ? this.authenticationRedirectUrl : null,
-        send_push: type === "push"
+        send_push: type === "push",
+        google_v3_recaptcha_token: token
       };
 
       document
@@ -1320,20 +1466,15 @@ class SDK {
       if (response.status >= 400) {
         const errorMessage =
           body.errorMessage || "An unknown error has occurred";
-        document
-          .querySelector(`.${styles.loadingOverlay}`)!
-          .classList.add(styles.hidden);
+        this.hideLoading();
         document
           .querySelector(`#login .${styles.inputContainer}`)!
           .classList.add(styles.invalid);
         document.querySelector(
           `#login .${styles.inputErrorMessage}`
         )!.textContent = errorMessage;
-        const modal = document.querySelector(`.${styles.modal}`);
 
-        if (modal) {
-          modal.classList.add(styles.hidden);
-        }
+        this.closeModal();
 
         this.updateMessage(errorMessage, "danger");
         this.hidePopup();
@@ -1350,6 +1491,13 @@ class SDK {
         const popupQRCode = document.querySelector(`.${styles.qrCodeImg}`);
         popupQRCode?.classList.remove(styles.hidden);
         popupQRCode?.setAttribute("src", qrCode.src);
+
+        if (popupQRCode?.parentElement) {
+          popupQRCode.parentElement.dataset.link = body.qr_code_data.replace(
+            "autharmor.com",
+            "autharmor.dev"
+          );
+        }
 
         if (type === "usernameless") {
           const qrCodeImg = document.querySelector(
@@ -1377,19 +1525,18 @@ class SDK {
       if (this.pollTimerId) {
         clearTimeout(this.pollTimerId);
       }
-      this.getRequestStatus({
-        id: body.auth_request_id,
-        pollDuration: 1000,
-        usernameless: type === "usernameless"
-      });
-      document
-        .querySelector(`.${styles.loadingOverlay}`)!
-        .classList.add(styles.hidden);
+      if (type !== "magiclink") {
+        this.getRequestStatus({
+          id: body.auth_request_id,
+          token: body.auth_validation_token,
+          pollDuration: 1000,
+          usernameless: type === "usernameless"
+        });
+      }
+      this.hideLoading();
     } catch (err) {
       console.error(err);
-      document
-        .querySelector(`.${styles.loadingOverlay}`)!
-        .classList.add(styles.hidden);
+      this.hideLoading();
       document
         .querySelector(`.${styles.criticalError}`)!
         .classList.remove(styles.hidden);
@@ -1398,7 +1545,10 @@ class SDK {
     }
   };
 
-  private selectAuthMethod = (type: AuthTypes): void => {
+  private selectAuthMethod = (
+    type: AuthTypes,
+    options: Partial<Preferences> = {}
+  ): void => {
     const pushNotice = document.querySelector(`.${styles.pushNotice}`);
     const qrCodeBtn = document.querySelector(`.${styles.qrcodeBtnText}`);
     const email = document.querySelector(
@@ -1422,43 +1572,40 @@ class SDK {
 
     if (type === "push") {
       pushNotice.textContent = "We've sent a push message to your device(s)";
-      qrCodeBtn.textContent =
-        "Didn't get the push notification? Click here to scan a QR code instead";
+      qrCodeBtn.textContent = isMobile()
+        ? "Tap here to launch request in app"
+        : "Didn't get the push notification? Click here to scan a QR code instead";
     }
 
     if (type === "magiclink") {
+      const address = options?.username ?? email.value;
       if (
-        !email.value ||
-        !/^\w+([\.\+-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email.value)
+        !address ||
+        !/^\w+([\.\+-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(address)
       ) {
         const errorMessage = "Please specify a valid email";
-        document
-          .querySelector(`.${styles.loadingOverlay}`)!
-          .classList.add(styles.hidden);
+        this.hideLoading();
         container!.classList.add(styles.invalid);
         inputErrorMessage!.textContent = errorMessage;
 
         console.log(`#login .${styles.inputContainer}`);
 
-        const modal = document.querySelector(`.${styles.modal}`);
-
-        if (modal) {
-          modal.classList.add(styles.hidden);
-        }
+        this.closeModal();
 
         return;
       }
 
       pushNotice.textContent = "We've sent a magic link to your email";
-      qrCodeBtn.textContent =
-        "Didn't get the magic link? Click here to scan a QR code instead";
+      qrCodeBtn.textContent = isMobile()
+        ? "Tap here to launch request in app"
+        : "Didn't get the magic link? Click here to scan a QR code instead";
       this.showPopup("Please check your email", true);
     }
 
     if (type === "webauthn") {
       pushNotice.textContent = "Assertion in progress";
       qrCodeBtn.textContent = "Click here to scan a QR code instead";
-      document.querySelector(`.${styles.modal}`)!.classList.add(styles.hidden);
+      this.closeModal();
       this.showPopup("Please complete assertion", true);
       this.loginWebAuthn(email.value);
       return;
@@ -1468,12 +1615,15 @@ class SDK {
       this.showPopup();
     }
 
-    document.querySelector(`.${styles.modal}`)!.classList.add(styles.hidden);
+    this.closeModal();
 
-    this.requestAuth(type, email.value);
+    this.requestAuth(type, { username: email.value, ...options });
   };
 
-  setCardText = (messages: Record<string, string>) => {
+  setCardText = (
+    messages: Record<string, string>,
+    enrolledMethods?: Record<string, any>
+  ) => {
     Object.entries(messages).map(([key, value]) => {
       if (key === "title") {
         document.querySelector(`.${styles.modalHeader}`)!.textContent = value;
@@ -1484,10 +1634,21 @@ class SDK {
           `[data-card="${key}"] .${styles.text}`
         )!.textContent = value;
       }
+
+      if (enrolledMethods) {
+        const parsedKey = key === "push" ? "authenticator" : key;
+        document.querySelector(
+          `[data-card="${key}"] .${styles.devices}`
+        )!.textContent =
+          enrolledMethods[parsedKey]?.auth_method_masked_info ?? "";
+      }
     });
   };
 
-  mount = (selector = "", options: FormMountOptions = defaultOptions): void => {
+  mount = async (
+    selector = "",
+    options: FormMountOptions = defaultOptions
+  ): Promise<void> => {
     const element = document.querySelector(selector);
 
     if (!element) {
@@ -1501,10 +1662,81 @@ class SDK {
       ...options
     };
 
+    const defaultRegisterPreferences = {
+      action_name: "Register",
+      short_msg: "Register pending - please authorize",
+      timeout_in_seconds: 60
+    };
+
+    const defaultLoginPreferences = {
+      action_name: "Login",
+      short_msg: "Login pending - please authorize",
+      timeout_in_seconds: 60
+    };
+
+    const parsedPreferences: FormPreferences = {
+      register: {
+        magicLink: {
+          ...defaultRegisterPreferences,
+          timeout_in_seconds: 300,
+          ...(options.preferences?.register?.default ?? {}),
+          ...(options.preferences?.register?.magicLink ?? {})
+        },
+        authenticator: {
+          ...defaultRegisterPreferences,
+          timeout_in_seconds: 90,
+          ...(options.preferences?.register?.default ?? {}),
+          ...(options.preferences?.register?.authenticator ?? {})
+        },
+        webauthn: {
+          ...defaultRegisterPreferences,
+          timeout_in_seconds: 120,
+          ...(options.preferences?.register?.default ?? {}),
+          ...(options.preferences?.register?.webauthn ?? {})
+        }
+      },
+      login: {
+        magicLink: {
+          ...defaultLoginPreferences,
+          timeout_in_seconds: 300,
+          ...(options.preferences?.login?.default ?? {}),
+          ...(options.preferences?.login?.magicLink ?? {})
+        },
+        authenticator: {
+          ...defaultLoginPreferences,
+          timeout_in_seconds: 90,
+          ...(options.preferences?.login?.default ?? {}),
+          ...(options.preferences?.login?.authenticator ?? {})
+        },
+        webauthn: {
+          ...defaultLoginPreferences,
+          timeout_in_seconds: 120,
+          ...(options.preferences?.login?.default ?? {}),
+          ...(options.preferences?.login?.webauthn ?? {})
+        }
+      }
+    };
+
+    this.preferences = parsedPreferences;
+
     const authenticatorEnabled =
       (!parsedOptions.methods ||
         parsedOptions.methods?.includes("authenticator")) &&
       parsedOptions.usernameless !== false;
+
+    const timeout = new Date(
+      Date.now() +
+        (parsedPreferences.login.authenticator?.timeout_in_seconds ?? 0) * 1000
+    );
+
+    const minutes = timeout
+      .getMinutes()
+      .toString()
+      .padStart(2, "0");
+    const seconds = timeout
+      .getSeconds()
+      .toString()
+      .padStart(2, "0");
 
     element.innerHTML = `
       <div class="${styles.container}">
@@ -1547,26 +1779,27 @@ class SDK {
                     <p class="${styles.headerText}">
                       Sign in using the Auth Armor Authenticator app
                     </p>
-                    <div class="${styles.qrCode}">
-                      <img src="" alt="" class="${styles.usernamelessQrImg}">
-                      ${
-                        isMobile()
-                          ? `<div class="${styles.mobileUsernameless}">
-                               <p class="${styles.mobileUsernamelessTitle}">Usernameless login</p>
-                               <a class="${styles.mobileUsernamelessBtn}">Login with App</a>
-                             </div>`
-                          : ""
-                      }
-                      <div class="${styles.qrCodeTimeout} ${styles.hidden}">
-                        <div class="${styles.timeoutHead}">Code timed out!</div>
-                        <div class="${styles.timeoutBtn}">Refresh Code</div>
-                      </div>
-                    </div>
-                    <p class="${
-                      styles.desc
-                    }">Scan this QR code using the app to sign in</p>
+                    ${
+                      isMobile()
+                        ? `
+                            <div class="${styles.mobileUsernameless}">
+                              <p class="${styles.mobileUsernamelessTitle}">Usernameless login</p>
+                              <a class="${styles.mobileUsernamelessBtn}">Login with App</a>
+                            </div>
+                          `
+                        : `
+                            <div class="${styles.qrCode}">
+                              <img src="" alt="" class="${styles.usernamelessQrImg}">
+                              <div class="${styles.qrCodeTimeout} ${styles.hidden}">
+                                <div class="${styles.timeoutHead}">Code timed out!</div>
+                                <div class="${styles.timeoutBtn}">Refresh Code</div>
+                              </div>
+                            </div>
+                            <p class="${styles.desc}">Scan this QR code using the app to sign in</p>
+                          `
+                    }
                     <div class="${styles.timerContainer}">
-                      <p class="${styles.timer}">00:43</p>
+                      <p class="${styles.timer}">${minutes}:${seconds}</p>
                       <div class="${styles.refresh}">
                         <img src="${refreshIcon}" alt="refresh-btn" />
                       </div>
@@ -1624,6 +1857,9 @@ class SDK {
           </form>
         </div>
       </div>
+    `;
+
+    document.body.innerHTML += `
       <div class="${styles.modal} ${styles.hidden}">
         <div class="${styles.modalBackground}"></div>
         <div class="${styles.modalContainer}">
@@ -1641,8 +1877,12 @@ class SDK {
                       <img src="${phoneIcon}" alt="icon" />
                     </div>
                     <p class="${styles.title}">Push Authentication</p>
-                    <p class="${styles.text}">
-                      Send me a push message to my Auth Armor authenticator to login
+                    <p class="${styles.textContainer}">
+                      <span class="${
+                        styles.text
+                      }">Send me a push message to my Auth Armor authenticator to login</span> <span class="${
+                    styles.devices
+                  }"></span>
                     </p>
                   </div>
                   `
@@ -1661,8 +1901,12 @@ class SDK {
                       <img src="${emailIcon}" alt="icon" />
                     </div>
                     <p class="${styles.title}">Magic Link Login Email</p>
-                    <p class="${styles.text}">
-                      Send me a magic link email to login
+                    <p class="${styles.textContainer}">
+                      <span class="${
+                        styles.text
+                      }">Send me a magic link email to login</span> <span class="${
+                    styles.devices
+                  }"></span>
                     </p>
                   </div>`
                 : ""
@@ -1680,8 +1924,12 @@ class SDK {
                       <img src="${emailIcon}" alt="icon" />
                     </div>
                     <p class="${styles.title}">WebAuthn</p>
-                    <p class="${styles.text}">
-                      Login using WebAuthn
+                    <p class="${styles.textContainer}">
+                      <span class="${
+                        styles.text
+                      }">Login using WebAuthn</span> <span class="${
+                    styles.devices
+                  }"></span>
                     </p>
                   </div>`
                 : ""
@@ -1722,77 +1970,168 @@ class SDK {
             .forEach(otherInput => {
               otherInput.value = input.value;
             });
+
+          if (
+            input.value?.trim() ||
+            parsedOptions.methods?.includes("webauthn")
+          ) {
+            document
+              .querySelector(`#login .${styles.btn}`)
+              ?.classList.remove(styles.disabled);
+            document
+              .querySelector(`#register .${styles.btn}`)
+              ?.classList.remove(styles.disabled);
+          } else {
+            document
+              .querySelector(`#login .${styles.btn}`)
+              ?.classList.add(styles.disabled);
+            document
+              .querySelector(`#register .${styles.btn}`)
+              ?.classList.add(styles.disabled);
+          }
         });
       });
 
     btns.forEach(btn => {
       // eslint-disable-next-line @typescript-eslint/no-this-alias
       const self = this;
-      btn.addEventListener("click", function() {
-        const modal = document.querySelector(
-          `.${styles.modal}`
-        ) as HTMLDivElement;
-        const loginUsername = document.querySelector(
-          `#login .${styles.email}`
-        ) as HTMLInputElement;
-        const registerUsername = document.querySelector(
-          `#register .${styles.email}`
-        ) as HTMLInputElement;
+      btn.addEventListener("click", async function() {
+        try {
+          const modal = document.querySelector(
+            `.${styles.modal}`
+          ) as HTMLDivElement;
+          const loginUsername = document.querySelector(
+            `#login .${styles.email}`
+          ) as HTMLInputElement;
+          const registerUsername = document.querySelector(
+            `#register .${styles.email}`
+          ) as HTMLInputElement;
 
-        if (this.dataset.btn === "login") {
-          const messages = {
-            title: "Pick your auth method",
-            push:
-              "Send me a push message to my Auth Armor authenticator to login",
-            magiclink: "Send me a magic link email to login",
-            webauthn: "Login using WebAuthn"
-          };
+          cards.forEach(card => {
+            card.classList.remove(styles.hiddenDisplay);
+          });
 
-          self.setCardText(messages);
+          if (this.dataset.btn === "login") {
+            self.showLoading();
 
-          if (parsedOptions.methods?.length === 1) {
-            const [method] = parsedOptions.methods;
-            self.selectAuthMethod(method === "authenticator" ? "push" : method);
-            return;
-          }
+            const enrollments = await self.getUserEnrollments({
+              username: loginUsername.value
+            });
 
-          if (
-            parsedOptions.methods?.includes("webauthn") &&
-            !loginUsername.value
-          ) {
-            self.selectAuthMethod("webauthn");
-            return;
-          }
-        }
-
-        if (this.dataset.btn === "register") {
-          const messages = {
-            title: "Pick your registration method",
-            push:
-              "Send me a push message to my Auth Armor authenticator to register",
-            magiclink: "Send me a magic link email to register",
-            webauthn: "Register using WebAuthn"
-          };
-
-          self.setCardText(messages);
-
-          if (parsedOptions.methods?.length === 1) {
-            const [method] = parsedOptions.methods;
-            const register: Record<AuthMethods, () => Promise<void>> = {
-              magiclink: () => self.registerMagicLink(registerUsername.value),
-              webauthn: () => self.registerWebAuthn(registerUsername.value),
-              authenticator: () =>
-                self.registerAuthenticator(registerUsername.value)
+            const enrolledMethods = {
+              authenticator: enrollments.find(
+                (enrollment: any) => enrollment.auth_method_id === 4
+              ),
+              webauthn: enrollments.find(
+                (enrollment: any) => enrollment.auth_method_id === 30
+              ),
+              magiclink: enrollments.find(
+                (enrollment: any) => enrollment.auth_method_id === 20
+              )
             };
 
-            register[method]();
-            return;
-          }
-        }
+            const availableMethods = Object.entries(enrolledMethods).filter(
+              ([key, value]) => value
+            );
 
-        if (modal) {
-          modal.dataset.type = this.dataset.btn;
-          modal.classList.remove(styles.hidden);
+            const messages = {
+              title: "Pick your auth method",
+              push: enrolledMethods.authenticator?.auth_method_masked_info
+                ? `Send a push to:`
+                : "Send me a push message to my Auth Armor authenticator to login",
+              magiclink: enrolledMethods.magiclink?.auth_method_masked_info
+                ? `Send magiclink email to:`
+                : "Send me a magic link email to login",
+              webauthn: enrolledMethods.webauthn?.auth_method_masked_info
+                ? `Login using WebAuthn my authorized credential(s):`
+                : "Login using WebAuthn"
+            };
+
+            self.setCardText(messages, enrolledMethods);
+
+            if (parsedOptions.methods?.length === 1) {
+              const [method] = parsedOptions.methods ?? [];
+              if (enrolledMethods[method]) {
+                self.selectAuthMethod(
+                  method === "authenticator" ? "push" : method
+                );
+                self.hideLoading();
+                return;
+              }
+            } else if (availableMethods.length === 1) {
+              const [method] = availableMethods[0] ?? [];
+              if (method) {
+                const parsedMethod: AuthTypes =
+                  method === "authenticator" ? "push" : (method as AuthTypes);
+                self.selectAuthMethod(parsedMethod);
+                self.hideLoading();
+                return;
+              }
+            }
+
+            if (
+              parsedOptions.methods?.includes("webauthn") &&
+              !loginUsername.value
+            ) {
+              self.selectAuthMethod("webauthn");
+              self.hideLoading();
+              return;
+            }
+
+            cards.forEach(card => {
+              const type = card.dataset.card as AuthTypes;
+              const parsedType =
+                type === "push" || type === "usernameless"
+                  ? "authenticator"
+                  : type;
+
+              if (
+                (type === "push" && !enrolledMethods.authenticator) ||
+                !enrolledMethods[parsedType]
+              ) {
+                card.classList.add(styles.hiddenDisplay);
+                return;
+              }
+
+              card.classList.remove(styles.hiddenDisplay);
+            });
+            self.hideLoading();
+          }
+
+          if (this.dataset.btn === "register") {
+            const messages = {
+              title: "Pick your registration method",
+              push:
+                "Send me a push message to my Auth Armor authenticator to register",
+              magiclink: "Send me a magic link email to register",
+              webauthn: "Register using WebAuthn"
+            };
+
+            self.setCardText(messages);
+
+            if (parsedOptions.methods?.length === 1) {
+              const [method] = parsedOptions.methods;
+              const register: Record<AuthMethods, () => Promise<void>> = {
+                magiclink: () => self.registerMagicLink(registerUsername.value),
+                webauthn: () => self.registerWebAuthn(registerUsername.value),
+                authenticator: () =>
+                  self.registerAuthenticator(registerUsername.value)
+              };
+
+              register[method]();
+              self.hideLoading();
+              return;
+            }
+          }
+
+          if (modal) {
+            modal.dataset.type = this.dataset.btn;
+            modal.classList.remove(styles.hidden);
+          }
+
+          self.hideLoading();
+        } catch (err) {
+          self.hideLoading();
         }
       });
     });
@@ -1801,7 +2140,7 @@ class SDK {
       modalBg.addEventListener("click", this.closeModal);
     }
 
-    cards.forEach(card =>
+    cards.forEach(card => {
       card.addEventListener("click", () => {
         const type = card.dataset.card as AuthTypes;
         const modal = document.querySelector(
@@ -1825,9 +2164,14 @@ class SDK {
           };
 
           register[type]();
+          this.closeModal();
         }
-      })
-    );
+
+        if (modal.dataset.type === "custom") {
+          this.selectAuthMethod(type, this.customOptions);
+        }
+      });
+    });
 
     document
       .querySelector(`.${styles.refresh}`)
@@ -1871,6 +2215,13 @@ class SDK {
             ?.classList.add(styles.disabled);
         }
       });
+
+    const SDKConfig = await this.getSDKConfig();
+    console.log(SDKConfig);
+
+    if (SDKConfig.recaptcha.enabled) {
+      this.recaptchaSiteKey = SDKConfig.recaptcha.siteId;
+    }
 
     if (authenticatorEnabled) {
       console.log("Getting usernameless data");
@@ -2218,77 +2569,75 @@ class SDK {
     }
   };
 
-  private authenticate = async ({
-    nickname,
-    sendPush = true,
-    visualVerify = false,
-    showPopup = true,
-    actionName,
-    shortMessage,
-    locationData,
-    headers,
-    onSuccess,
-    onFailure
-  }: AuthenticateArgs) => {
-    try {
-      if (showPopup === true || (sendPush && showPopup !== false)) {
-        const qrCodeImage = $(`.${styles.qrCodeImg}`);
-        qrCodeImage?.classList.add(styles.hidden);
-        this.showPopup();
-      }
+  public getUserEnrollments = async ({ username }: { username: string }) => {
+    const userId = "00000000-0000-0000-0000-000000000000";
 
-      const { data }: Response<AuthRequest> = await Axios.post(
-        `/authenticate`,
-        {
-          nickname,
-          send_push: sendPush && nickname?.length > 0,
-          use_visual_verify: visualVerify,
-          action_name: actionName,
-          short_msg: shortMessage,
-          origin_location_data: locationData
+    if (!username) {
+      return [];
+    }
+
+    // Dummy Data
+    // if (username) {
+    //   return [
+    //     {
+    //       auth_method_name: "AuthArmorAuthenticator",
+    //       auth_method_id: 4,
+    //       auth_method_masked_info: "MI 9, MI 9, Shane’s iPhone, Shane’s iPhone"
+    //     },
+    //     {
+    //       auth_method_name: "AuthArmorAuthenticator",
+    //       auth_method_id: 20,
+    //       auth_method_masked_info: "MI 9, MI 9, Shane’s iPhone, Shane’s iPhone"
+    //     },
+    //     {
+    //       auth_method_name: "AuthArmorAuthenticator",
+    //       auth_method_id: 30,
+    //       auth_method_masked_info: "MI 9, MI 9, Shane’s iPhone, Shane’s iPhone"
+    //     }
+    //   ];
+    // }
+
+    const data = await this.fetch(
+      `${this.debug.url}/api/v3/users/${userId}/enrolledmethods?apikey=${this.publicKey}`,
+      {
+        headers: {
+          "Content-Type": "application/json"
         },
-        { withCredentials: true, headers }
-      );
-      if (showPopup === true || (sendPush && showPopup !== false)) {
-        const qrCode = kjua({
-          text: data.qr_code_data,
-          rounded: 10,
-          back: "#202020",
-          fill: "#2cb2b5"
-        }).src;
-        const qrCodeImage = $(`.${styles.qrCodeImg}`);
-        qrCodeImage?.classList.remove(styles.hidden);
-        qrCodeImage?.setAttribute("src", qrCode);
+        method: "POST",
+        body: JSON.stringify({
+          username_or_email_address: username
+        })
       }
+    )
+      .then(res => {
+        if (res.status >= 400) {
+          throw res;
+        }
 
-      const visualVerifyElement = $(
-        `.${styles.visualVerifyIcon}`
+        return res.json();
+      })
+      .catch(() => {
+        document
+          .querySelector(`#login .${styles.inputContainer}`)!
+          .classList.add(styles.invalid);
+        document.querySelector(
+          `#login .${styles.inputErrorMessage}`
+        )!.textContent = "User doesn't exist";
+      });
+
+    return data.enrolled_auth_methods;
+  };
+
+  private authenticate = async (options?: Partial<Preferences>) => {
+    try {
+      const modal = document.querySelector(
+        `.${styles.modal}`
       ) as HTMLDivElement;
 
-      if (visualVerifyElement && data.visual_verify_value) {
-        visualVerifyElement.classList.remove(styles.hidden);
-        visualVerifyElement.textContent = data.visual_verify_value;
-        visualVerifyElement.style.backgroundColor = generateColor(
-          data.visual_verify_value
-        );
-      }
+      this.customOptions = options;
 
-      return {
-        ...data,
-        getTimeLeft: () =>
-          new Date(data.timeout_utc_datetime).getTime() - Date.now(),
-        getQRCode: ({
-          backgroundColor = "#202020",
-          fillColor = "#2cb2b5",
-          borderRadius = 0
-        } = {}) =>
-          kjua({
-            text: data.qr_code_data,
-            rounded: borderRadius ?? 10,
-            back: backgroundColor,
-            fill: fillColor
-          }).src
-      };
+      modal.dataset.type = "custom";
+      modal.classList.remove(styles.hidden);
     } catch (err) {
       console.error(err);
       this.hidePopup();
