@@ -12,9 +12,9 @@
     "./build"
   ],
   "scripts": {
-    "build": "cross-env NODE_ENV=production webpack --progress",
-    "build:browser": "cross-env NODE_ENV=production webpack --progress --config ./webpack.config.browser.js",
-    "build:watch": "cross-env NODE_ENV=development webpack -w --progress --config ./webpack.config.browser.js",
+    "build": "cross-env NODE_ENV=production NODE_OPTIONS=--openssl-legacy-provider webpack --progress",
+    "build:browser": "cross-env NODE_ENV=production NODE_OPTIONS=--openssl-legacy-provider webpack --progress --config ./webpack.config.browser.js",
+    "build:watch": "cross-env NODE_ENV=development NODE_OPTIONS=--openssl-legacy-provider webpack -w --progress --config ./webpack.config.browser.js",
     "build:publish": "yarn build && yarn build:browser && yarn publish"
   },
   "devDependencies": {

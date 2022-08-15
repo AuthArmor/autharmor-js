@@ -8,6 +8,7 @@
   --autharmor-qr-code-background: #202020;
   --autharmor-highlight-color: #434857;
   --autharmor-input-background: #212329;
+  --autharmor-app-btn: #41baba;
 }
 
 .AuthArmor-root * {
@@ -505,23 +506,25 @@ p.mobile-usernameless-title {
 
 .mobile-usernameless-btn {
   display: flex;
-  padding: 12px 40px;
+  padding: 0;
+  padding-right: 30px;
+  align-items: center;
   border-radius: 8px;
-  background-color: var(--autharmor-tab-color);
-  font-weight: bold;
-  font-size: 16px;
+  background-color: #121319;
+  font-weight: 700;
+  font-size: 15px;
   color: #ffffffb0;
   text-decoration: none;
-  transform: translateY(0);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0);
+  transform: scale(1);
   cursor: pointer;
   transition: all 0.2s ease;
+  overflow: hidden;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 30%);
 }
 
 .mobile-usernameless-btn:hover {
   color: white;
-  transform: translateY(-5px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  transform: scale(1.2);
 }
 
 .mobile-usernameless {
@@ -530,6 +533,21 @@ p.mobile-usernameless-title {
   align-items: center;
   justify-content: center;
   margin: 30px 0;
+}
+
+.mobile-usernameless-icon-container {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* border-radius: 6px; */
+  background-color: #242426;
+  margin-right: 18px;
+}
+
+.mobile-usernameless-icon {
+  height: 26px;
 }
 
 .qr-code-timeout {

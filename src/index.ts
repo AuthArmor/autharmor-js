@@ -1724,24 +1724,10 @@ class SDK {
         parsedOptions.methods?.includes("authenticator")) &&
       parsedOptions.usernameless !== false;
 
-    const timeout = new Date(
-      Date.now() +
-        (parsedPreferences.login.authenticator?.timeout_in_seconds ?? 0) * 1000
-    );
-
-    const minutes = timeout
-      .getMinutes()
-      .toString()
-      .padStart(2, "0");
-    const seconds = timeout
-      .getSeconds()
-      .toString()
-      .padStart(2, "0");
-
     element.innerHTML = `
       <div class="${styles.container}">
         <div class="${styles.content}">
-          <div class="${styles.loadingOverlay} ${styles.hidden}">
+          <div class="${styles.loadingOverlay}">
             <div class="${styles.ldsRing}">
               <div></div>
               <div></div>
@@ -1784,7 +1770,12 @@ class SDK {
                         ? `
                             <div class="${styles.mobileUsernameless}">
                               <p class="${styles.mobileUsernamelessTitle}">Usernameless login</p>
-                              <a class="${styles.mobileUsernamelessBtn}">Login with App</a>
+                              <a class="${styles.mobileUsernamelessBtn}" target="_blank" rel="noopener noreferrer">
+                                <div class="${styles.mobileUsernamelessIconContainer}">
+                                  <img src="${logo}" class="${styles.mobileUsernamelessIcon}" />
+                                </div>
+                                Login with App
+                              </a>
                             </div>
                           `
                         : `
@@ -1799,7 +1790,7 @@ class SDK {
                           `
                     }
                     <div class="${styles.timerContainer}">
-                      <p class="${styles.timer}">${minutes}:${seconds}</p>
+                      <p class="${styles.timer}">00:00</p>
                       <div class="${styles.refresh}">
                         <img src="${refreshIcon}" alt="refresh-btn" />
                       </div>
