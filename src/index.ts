@@ -117,8 +117,10 @@ interface FormStyles {
   accentColor: string;
   backgroundColor: string;
   tabColor: string;
-  activeTabColor: string;
   qrCodeBackground: string;
+  highlightColor: string;
+  inputBackground: string;
+  appBtn: string;
 }
 
 interface Preferences {
@@ -150,15 +152,16 @@ interface FormMountOptions {
   usernameless?: boolean;
   preferences?: Partial<FormPreferences>;
   styles?: Partial<FormStyles>;
+  visualVerify?: boolean;
 }
 
 const defaultOptions: FormMountOptions = {
   methods: ["authenticator", "magiclink", "webauthn"],
   usernameless: true,
+  visualVerify: false,
   styles: {
     accentColor: "#0bdbdb",
     backgroundColor: "#2a2d35",
-    activeTabColor: "#363a46",
     tabColor: "#363a46",
     qrCodeBackground: "#202020"
   }
@@ -182,6 +185,16 @@ interface DebugSettings {
   url: string;
 }
 
+interface SDKConfig {
+  endpointBasePath: string;
+  clientSdkApiKey: string;
+  webauthnClientId: string;
+  registerRedirectUrl: string;
+  authenticationRedirectUrl: string;
+  getNonce?: () => void;
+  debug: DebugSettings;
+}
+
 declare global {
   interface Window {
     AuthArmorSDK: any;
@@ -196,6 +209,8 @@ const isMobile = () => {
 
   return navigator.userAgent.match(toMatch);
 };
+
+const isIOS = () => !!navigator.userAgent.match(/(iPhone|iPad|iPod)/i)?.length;
 
 class SDK {
   private url: string;
@@ -217,6 +232,7 @@ class SDK {
   private recaptcha?: ReCaptchaInstance;
   private recaptchaSiteKey = "";
   private customOptions?: Partial<Preferences>;
+  private getNonce?: () => void;
   private debug: DebugSettings = {
     url: "https://auth.autharmor.dev"
   };
@@ -227,8 +243,9 @@ class SDK {
     webauthnClientId = "",
     registerRedirectUrl = "",
     authenticationRedirectUrl = "",
+    getNonce,
     debug = { url: "https://auth.autharmor.dev" }
-  }) {
+  }: SDKConfig) {
     this.url = this.processUrl(endpointBasePath);
 
     if (registerRedirectUrl) {
@@ -247,6 +264,10 @@ class SDK {
 
     if (debug) {
       this.debug = debug;
+    }
+
+    if (getNonce) {
+      this.getNonce = getNonce;
     }
 
     this.publicKey = clientSdkApiKey;
@@ -684,6 +705,14 @@ class SDK {
 
       this.hidePopup();
     };
+
+    document
+      .querySelectorAll<HTMLAnchorElement>(`.${styles.mobileUsernamelessBtn}`)
+      .forEach(link => {
+        link.removeEventListener("click", this.onLinkClick);
+
+        link.addEventListener("click", this.onLinkClick);
+      });
   };
 
   private updateModalText = (tabName: "register" | "login" = "login") => {
@@ -869,7 +898,8 @@ class SDK {
 
   private getRequestSignature = async (url: string, body = "") => {
     const timestamp = new Date().toISOString();
-    const nonce = uuidv4().replace(/-/g, "");
+    const customNonce = this.getNonce ? this.getNonce() : null;
+    const nonce = customNonce ?? uuidv4().replace(/-/g, "");
 
     const urlParser = document.createElement("a");
     urlParser.href = url;
@@ -1082,7 +1112,7 @@ class SDK {
       this.updateMessage("Please scan the QR Code with your phone");
 
       const qrCode = kjua({
-        text: body.qr_code_data.replace("autharmor.com", "autharmor.dev"),
+        text: this.processLink(body.qr_code_data, isIOS()),
         rounded: 10,
         back: "#202020",
         fill: "#2cb2b5"
@@ -1094,9 +1124,9 @@ class SDK {
         popupQRCode?.setAttribute("src", qrCode.src);
 
         if (popupQRCode.parentElement) {
-          popupQRCode.parentElement.dataset.link = body.qr_code_data.replace(
-            "autharmor.com",
-            "autharmor.dev"
+          popupQRCode.parentElement.dataset.link = this.processLink(
+            body.qr_code_data,
+            isIOS()
           );
         }
       }
@@ -1104,9 +1134,9 @@ class SDK {
       const mobileQRCode = $(`.${styles.qrCodeMobile}`) as HTMLElement;
 
       if (mobileQRCode) {
-        mobileQRCode.dataset.link = body.qr_code_data.replace(
-          "autharmor.com",
-          "autharmor.dev"
+        mobileQRCode.dataset.link = this.processLink(
+          body.qr_code_data,
+          isIOS()
         );
       }
 
@@ -1413,6 +1443,33 @@ class SDK {
     }
   };
 
+  onLinkClick = (e: MouseEvent) => {
+    const link = (e.target as HTMLAnchorElement).href;
+    const now = new Date().valueOf();
+
+    if (isIOS()) {
+      const newTab = window.open(link, "_blank");
+      setTimeout(() => {
+        if (newTab) {
+          if (new Date().valueOf() - now > 100) {
+            newTab.close(); // scenario #4
+            // old way - "return" - but this would just leave a blank page in users browser
+            //return;
+          }
+
+          const message =
+            "AuthArmor app is not installed in your phone, would you like to download it from the App Store?";
+
+          if (window.confirm(message)) {
+            newTab.location.href =
+              "https://apps.apple.com/us/app/auth-armor-authenticator/id1502837764";
+            return;
+          }
+        }
+      }, 50);
+    }
+  };
+
   // Authentication
   public requestAuth = async (
     type: AuthTypes,
@@ -1483,7 +1540,7 @@ class SDK {
 
       if (body.qr_code_data) {
         const qrCode = kjua({
-          text: body.qr_code_data.replace("autharmor.com", "autharmor.dev"),
+          text: this.processLink(body.qr_code_data, isIOS()),
           rounded: 10,
           back: "#202020",
           fill: "#2cb2b5"
@@ -1493,9 +1550,9 @@ class SDK {
         popupQRCode?.setAttribute("src", qrCode.src);
 
         if (popupQRCode?.parentElement) {
-          popupQRCode.parentElement.dataset.link = body.qr_code_data.replace(
-            "autharmor.com",
-            "autharmor.dev"
+          popupQRCode.parentElement.dataset.link = this.processLink(
+            body.qr_code_data,
+            isIOS()
           );
         }
 
@@ -1511,8 +1568,18 @@ class SDK {
             .querySelector(`.${styles.mobileUsernamelessBtn}`)
             ?.setAttribute(
               "href",
-              body.qr_code_data.replace("autharmor.com", "autharmor.dev")
+              this.processLink(body.qr_code_data, isIOS())
             );
+
+          document
+            .querySelectorAll<HTMLAnchorElement>(
+              `.${styles.mobileUsernamelessBtn}`
+            )
+            .forEach(link => {
+              link.removeEventListener("click", this.onLinkClick);
+
+              link.addEventListener("click", this.onLinkClick);
+            });
 
           this.expirationDate = Date.now() + body.timeout_in_seconds * 1000;
           if (this.tickTimerId) {
@@ -1752,7 +1819,7 @@ class SDK {
             </div>
             <div class="${styles.tab}" data-tab="register">Register</div>
           </div>
-          <div
+          <form
             id="login"
             class="${styles.tabContent}" 
             style="display: block; ${
@@ -1822,7 +1889,7 @@ class SDK {
               data-btn="login">
               <p>Login</p>
             </div>
-          </div>
+          </form>
           <form
             id="register"
             class="${styles.tabContent}" 
@@ -1943,6 +2010,7 @@ class SDK {
     const modalBg = document.querySelector(
       `.${styles.modalBackground}`
     ) as HTMLDivElement;
+    const forms = document.querySelectorAll(`form.${styles.tabContent}`);
 
     tabs.forEach(tab => {
       // eslint-disable-next-line @typescript-eslint/no-this-alias
@@ -1983,148 +2051,168 @@ class SDK {
         });
       });
 
-    btns.forEach(btn => {
-      // eslint-disable-next-line @typescript-eslint/no-this-alias
-      const self = this;
-      btn.addEventListener("click", async function() {
-        try {
-          const modal = document.querySelector(
-            `.${styles.modal}`
-          ) as HTMLDivElement;
-          const loginUsername = document.querySelector(
-            `#login .${styles.email}`
-          ) as HTMLInputElement;
-          const registerUsername = document.querySelector(
-            `#register .${styles.email}`
-          ) as HTMLInputElement;
+    const submitForm = async (btn: HTMLDivElement) => {
+      try {
+        const modal = document.querySelector(
+          `.${styles.modal}`
+        ) as HTMLDivElement;
+        const loginUsername = document.querySelector(
+          `#login .${styles.email}`
+        ) as HTMLInputElement;
+        const registerUsername = document.querySelector(
+          `#register .${styles.email}`
+        ) as HTMLInputElement;
 
-          cards.forEach(card => {
-            card.classList.remove(styles.hiddenDisplay);
+        cards.forEach(card => {
+          card.classList.remove(styles.hiddenDisplay);
+        });
+
+        if (btn.dataset.btn === "login") {
+          if (!loginUsername.value) {
+            return;
+          }
+
+          this.showLoading();
+
+          const enrollments = await this.getUserEnrollments({
+            username: loginUsername.value
           });
 
-          if (this.dataset.btn === "login") {
-            self.showLoading();
+          const enrolledMethods = {
+            authenticator: enrollments.find(
+              (enrollment: any) => enrollment.auth_method_id === 4
+            ),
+            webauthn: enrollments.find(
+              (enrollment: any) => enrollment.auth_method_id === 30
+            ),
+            magiclink: enrollments.find(
+              (enrollment: any) => enrollment.auth_method_id === 20
+            )
+          };
 
-            const enrollments = await self.getUserEnrollments({
-              username: loginUsername.value
-            });
+          const availableMethods = Object.entries(enrolledMethods).filter(
+            ([key, value]) => value
+          );
 
-            const enrolledMethods = {
-              authenticator: enrollments.find(
-                (enrollment: any) => enrollment.auth_method_id === 4
-              ),
-              webauthn: enrollments.find(
-                (enrollment: any) => enrollment.auth_method_id === 30
-              ),
-              magiclink: enrollments.find(
-                (enrollment: any) => enrollment.auth_method_id === 20
-              )
-            };
+          const messages = {
+            title: "Pick your auth method",
+            push: enrolledMethods.authenticator?.auth_method_masked_info
+              ? `Send a push to:`
+              : "Send me a push message to my Auth Armor authenticator to login",
+            magiclink: enrolledMethods.magiclink?.auth_method_masked_info
+              ? `Send magiclink email to:`
+              : "Send me a magic link email to login",
+            webauthn: enrolledMethods.webauthn?.auth_method_masked_info
+              ? `Login using WebAuthn my authorized credential(s):`
+              : "Login using WebAuthn"
+          };
 
-            const availableMethods = Object.entries(enrolledMethods).filter(
-              ([key, value]) => value
-            );
+          this.setCardText(messages, enrolledMethods);
 
-            const messages = {
-              title: "Pick your auth method",
-              push: enrolledMethods.authenticator?.auth_method_masked_info
-                ? `Send a push to:`
-                : "Send me a push message to my Auth Armor authenticator to login",
-              magiclink: enrolledMethods.magiclink?.auth_method_masked_info
-                ? `Send magiclink email to:`
-                : "Send me a magic link email to login",
-              webauthn: enrolledMethods.webauthn?.auth_method_masked_info
-                ? `Login using WebAuthn my authorized credential(s):`
-                : "Login using WebAuthn"
-            };
-
-            self.setCardText(messages, enrolledMethods);
-
-            if (parsedOptions.methods?.length === 1) {
-              const [method] = parsedOptions.methods ?? [];
-              if (enrolledMethods[method]) {
-                self.selectAuthMethod(
-                  method === "authenticator" ? "push" : method
-                );
-                self.hideLoading();
-                return;
-              }
-            } else if (availableMethods.length === 1) {
-              const [method] = availableMethods[0] ?? [];
-              if (method) {
-                const parsedMethod: AuthTypes =
-                  method === "authenticator" ? "push" : (method as AuthTypes);
-                self.selectAuthMethod(parsedMethod);
-                self.hideLoading();
-                return;
-              }
+          if (parsedOptions.methods?.length === 1) {
+            const [method] = parsedOptions.methods ?? [];
+            if (enrolledMethods[method]) {
+              this.selectAuthMethod(
+                method === "authenticator" ? "push" : method
+              );
+              this.hideLoading();
+              return;
             }
+          } else if (availableMethods.length === 1) {
+            const [method] = availableMethods[0] ?? [];
+            if (method) {
+              const parsedMethod: AuthTypes =
+                method === "authenticator" ? "push" : (method as AuthTypes);
+              this.selectAuthMethod(parsedMethod);
+              this.hideLoading();
+              return;
+            }
+          }
+
+          if (
+            parsedOptions.methods?.includes("webauthn") &&
+            !loginUsername.value
+          ) {
+            this.selectAuthMethod("webauthn");
+            this.hideLoading();
+            return;
+          }
+
+          cards.forEach(card => {
+            const type = card.dataset.card as AuthTypes;
+            const parsedType =
+              type === "push" || type === "usernameless"
+                ? "authenticator"
+                : type;
 
             if (
-              parsedOptions.methods?.includes("webauthn") &&
-              !loginUsername.value
+              (type === "push" && !enrolledMethods.authenticator) ||
+              !enrolledMethods[parsedType]
             ) {
-              self.selectAuthMethod("webauthn");
-              self.hideLoading();
+              card.classList.add(styles.hiddenDisplay);
               return;
             }
 
-            cards.forEach(card => {
-              const type = card.dataset.card as AuthTypes;
-              const parsedType =
-                type === "push" || type === "usernameless"
-                  ? "authenticator"
-                  : type;
+            card.classList.remove(styles.hiddenDisplay);
+          });
+          this.hideLoading();
+        }
 
-              if (
-                (type === "push" && !enrolledMethods.authenticator) ||
-                !enrolledMethods[parsedType]
-              ) {
-                card.classList.add(styles.hiddenDisplay);
-                return;
-              }
-
-              card.classList.remove(styles.hiddenDisplay);
-            });
-            self.hideLoading();
+        if (btn.dataset.btn === "register") {
+          if (!registerUsername.value) {
+            return;
           }
 
-          if (this.dataset.btn === "register") {
-            const messages = {
-              title: "Pick your registration method",
-              push:
-                "Send me a push message to my Auth Armor authenticator to register",
-              magiclink: "Send me a magic link email to register",
-              webauthn: "Register using WebAuthn"
+          const messages = {
+            title: "Pick your registration method",
+            push:
+              "Send me a push message to my Auth Armor authenticator to register",
+            magiclink: "Send me a magic link email to register",
+            webauthn: "Register using WebAuthn"
+          };
+
+          this.setCardText(messages);
+
+          if (parsedOptions.methods?.length === 1) {
+            const [method] = parsedOptions.methods;
+            const register: Record<AuthMethods, () => Promise<void>> = {
+              magiclink: () => this.registerMagicLink(registerUsername.value),
+              webauthn: () => this.registerWebAuthn(registerUsername.value),
+              authenticator: () =>
+                this.registerAuthenticator(registerUsername.value)
             };
 
-            self.setCardText(messages);
-
-            if (parsedOptions.methods?.length === 1) {
-              const [method] = parsedOptions.methods;
-              const register: Record<AuthMethods, () => Promise<void>> = {
-                magiclink: () => self.registerMagicLink(registerUsername.value),
-                webauthn: () => self.registerWebAuthn(registerUsername.value),
-                authenticator: () =>
-                  self.registerAuthenticator(registerUsername.value)
-              };
-
-              register[method]();
-              self.hideLoading();
-              return;
-            }
+            register[method]();
+            this.hideLoading();
+            return;
           }
-
-          if (modal) {
-            modal.dataset.type = this.dataset.btn;
-            modal.classList.remove(styles.hidden);
-          }
-
-          self.hideLoading();
-        } catch (err) {
-          self.hideLoading();
         }
+
+        if (modal) {
+          modal.dataset.type = btn.dataset.btn;
+          modal.classList.remove(styles.hidden);
+        }
+
+        this.hideLoading();
+      } catch (err) {
+        this.hideLoading();
+      }
+    };
+
+    btns.forEach(btn => {
+      btn.addEventListener("click", async function() {
+        submitForm(this);
       });
+    });
+
+    document.querySelector("#register")?.addEventListener("submit", e => {
+      e.preventDefault();
+      submitForm($(`#register .${styles.btn}`) as HTMLDivElement);
+    });
+
+    document.querySelector("#login")?.addEventListener("submit", e => {
+      e.preventDefault();
+      submitForm($(`#login .${styles.btn}`) as HTMLDivElement);
     });
 
     if (modalBg) {
@@ -2221,6 +2309,33 @@ class SDK {
     }
 
     this.updateModalText();
+    document
+      .querySelectorAll(`.${styles.mobileUsernamelessBtn}`)
+      .forEach(btn => {
+        if (isIOS()) {
+          btn.addEventListener("click", e => {
+            e.preventDefault();
+          });
+        }
+      });
+  };
+
+  processLink = (link: string, customScheme: boolean) => {
+    const sanitizedLink = new URL(
+      link.replace("autharmor.com", "autharmor.dev")
+    );
+
+    // if (customScheme) {
+    //   const moduleName = sanitizedLink.hostname.startsWith("auth.")
+    //     ? "usernameless"
+    //     : "profile";
+    //   const [profileId, requestId] = sanitizedLink.pathname
+    //     .split("/")
+    //     .slice(-2);
+    //   return `autharmordev://${moduleName}/${profileId}/${requestId}`;
+    // }
+
+    return sanitizedLink.toString();
   };
 
   setStyle = (styles: FormStyles): void => {
@@ -2230,7 +2345,8 @@ class SDK {
       tabColor: "--autharmor-tab-color",
       qrCodeBackground: "--autharmor-qr-code-background",
       highlightColor: "--autharmor-highlight-color",
-      inputBackground: "--autharmor-input-background"
+      inputBackground: "--autharmor-input-background",
+      appBtn: "--autharmor-app-btn"
     };
 
     Object.entries(styles).map(([key, value]) => {
@@ -2326,7 +2442,10 @@ class SDK {
           fillColor = "#2cb2b5",
           borderRadius = 0
         } = {}) => {
-          const stringifiedInvite = data.qr_code_data;
+          const stringifiedInvite = this.processLink(
+            data.qr_code_data,
+            isIOS()
+          );
           const code = kjua({
             text: stringifiedInvite,
             rounded: borderRadius,
@@ -2368,7 +2487,10 @@ class SDK {
           fillColor = "#2cb2b5",
           borderRadius = 0
         } = {}) => {
-          const stringifiedInvite = data.qr_code_data;
+          const stringifiedInvite = this.processLink(
+            data.qr_code_data,
+            isIOS()
+          );
           const code = kjua({
             text: stringifiedInvite,
             rounded: borderRadius,
@@ -2413,7 +2535,10 @@ class SDK {
           fillColor = "#2cb2b5",
           borderRadius = 0
         } = {}) => {
-          const stringifiedInvite = data.qr_code_data;
+          const stringifiedInvite = this.processLink(
+            data.qr_code_data,
+            isIOS()
+          );
           const code = kjua({
             text: stringifiedInvite,
             rounded: borderRadius,
@@ -2633,6 +2758,20 @@ class SDK {
       console.error(err);
       this.hidePopup();
       throw err?.data ?? err;
+    }
+  };
+
+  public destroy = () => {
+    if (this.QRAnimationTimer) {
+      clearTimeout(this.QRAnimationTimer);
+    }
+
+    if (this.tickTimerId) {
+      clearTimeout(this.tickTimerId);
+    }
+
+    if (this.pollTimerId) {
+      clearTimeout(this.pollTimerId);
     }
   };
 
