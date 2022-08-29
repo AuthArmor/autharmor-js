@@ -1,6 +1,6 @@
 {
   "name": "autharmor-sdk",
-  "version": "3.0.0-beta.4",
+  "version": "3.0.0-beta.5",
   "main": "build/index.js",
   "license": "MIT",
   "homepage": "https://github.com/AuthArmor/autharmor-jsclient-sdk#readme",
@@ -15,7 +15,7 @@
     "build": "cross-env NODE_ENV=production NODE_OPTIONS=--openssl-legacy-provider webpack --progress",
     "build:browser": "cross-env NODE_ENV=production NODE_OPTIONS=--openssl-legacy-provider webpack --progress --config ./webpack.config.browser.js",
     "build:watch": "cross-env NODE_ENV=development NODE_OPTIONS=--openssl-legacy-provider webpack -w --progress --config ./webpack.config.browser.js",
-    "build:publish": "yarn build && yarn build:browser && yarn publish"
+    "build:publish": "yarn build && yarn build && yarn publish"
   },
   "devDependencies": {
     "@babel/core": "^7.0.0-0",
