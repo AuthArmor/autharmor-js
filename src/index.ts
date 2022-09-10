@@ -1495,7 +1495,7 @@ class SDK {
 
       const response = await this.fetch(
         `${this.debug.url}/api/v3/auth/request/${
-          type === "magiclink-email" ? type : "authenticator"
+          type === "magiclink-email" ? "magiclink" : "authenticator"
         }/start?apikey=${this.publicKey}`,
         {
           headers: {
