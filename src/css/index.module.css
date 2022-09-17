@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap");
+
 :root {
   --autharmor-loader-size: 80px;
   --autharmor-loader-gap-ratio: 0.8;
@@ -88,7 +90,7 @@
 .tabs {
   display: flex;
   margin-bottom: 0;
-  border-bottom: 2px solid var(--autharmor-background-color);
+  border-bottom: 0px solid var(--autharmor-background-color);
 }
 
 .tab {

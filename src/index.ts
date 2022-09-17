@@ -403,7 +403,7 @@ class SDK {
     const qrCodeContainer = $(`.${styles.qrCodeImgContainer}`);
     const autharmorIcon = $(`.${styles.autharmorIcon}`);
     const pushNotice = $(`.${styles.pushNotice}`);
-    const openBtn = $(
+    const openBtns = document.querySelectorAll(
       `.${styles.qrCodeMobile} .${styles.mobileUsernamelessBtn}`
     );
 
@@ -423,9 +423,11 @@ class SDK {
         "href",
         (qrCodeContainer as HTMLDivElement).dataset.link!
       );
-      openBtn?.setAttribute(
-        "href",
-        (qrCodeContainer as HTMLDivElement).dataset.link!
+      openBtns?.forEach(openBtn =>
+        openBtn.setAttribute(
+          "href",
+          (qrCodeContainer as HTMLDivElement).dataset.link!
+        )
       );
     }
     autharmorIcon?.classList.add(styles.hidden);
@@ -1014,6 +1016,10 @@ class SDK {
         document
           .querySelector(`.${styles.mobileUsernameless}`)
           ?.classList.add(styles.hidden);
+
+        if (this.tickTimerId) {
+          clearTimeout(this.tickTimerId);
+        }
       }
 
       if (!usernameless) {
