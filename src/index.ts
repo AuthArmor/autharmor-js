@@ -1108,6 +1108,15 @@ class SDK {
         }
       }
 
+      document
+        .querySelectorAll(`a.${styles.mobileUsernamelessBtn}`)
+        ?.forEach(btn =>
+          btn?.setAttribute(
+            "href",
+            this.processLink(body.qr_code_data, isIOS())
+          )
+        );
+
       const mobileQRCode = $(`.${styles.qrCodeMobile}`) as HTMLElement;
 
       if (mobileQRCode) {
@@ -1439,22 +1448,23 @@ class SDK {
     if (isIOS()) {
       const newTab = window.open(link, "_blank");
       setTimeout(() => {
-        if (newTab) {
-          if (new Date().valueOf() - now > 100) {
-            newTab.close(); // scenario #4
-            // old way - "return" - but this would just leave a blank page in users browser
-            //return;
-          }
+        console.log(newTab);
+        // if (newTab) {
+        //   // if (new Date().valueOf() - now > 100) {
+        //   //   newTab.close(); // scenario #4
+        //   //   // old way - "return" - but this would just leave a blank page in users browser
+        //   //   //return;
+        //   // }
 
-          const message =
-            "AuthArmor app is not installed in your phone, would you like to download it from the App Store?";
+        //   // const message =
+        //   //   "AuthArmor app is not installed in your phone, would you like to download it from the App Store?";
 
-          if (window.confirm(message)) {
-            newTab.location.href =
-              "https://apps.apple.com/us/app/auth-armor-authenticator/id1502837764";
-            return;
-          }
-        }
+        //   // if (window.confirm(message)) {
+        //   //   newTab.location.href =
+        //   //     "https://apps.apple.com/us/app/auth-armor-authenticator/id1502837764";
+        //   //   return;
+        //   }
+        // }
       }, 50);
     }
   };
