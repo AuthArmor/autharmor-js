@@ -51,6 +51,7 @@ The form has a couple of other options as well for advanced use, such as styling
 ```js
 AuthArmor.form.mount(".example-form-class-name", {
   usernameless: true, // (Boolean) Toggle usernameless auth
+  defaultTab: "login" // (String) Could be one of ("login" | "register"), specifies tab that's going to be selected once the user lands in the page
   methods: [
     // ('authenticator' | 'magiclink' | 'webauthn') Specify allowed authentication methods
     "authenticator", // Push authentication/registration (Requires AuthArmor app)

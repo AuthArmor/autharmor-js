@@ -272,7 +272,6 @@ input.email::placeholder {
   align-items: center;
   border-radius: 10px;
   background: var(--autharmor-background-color);
-  width: 85%;
   max-width: 700px;
   padding: 43px;
   z-index: 10;
@@ -298,6 +297,7 @@ input.email::placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
   background-color: rgba(0, 0, 0, 0.7);
   opacity: 1;
   visibility: visible;
@@ -315,6 +315,10 @@ input.email::placeholder {
 
 .modal .modal-container {
   transform: translateY(0);
+}
+
+.loading-text {
+  transition: all 0.2s ease;
 }
 
 p.modal-header {
@@ -340,6 +344,8 @@ p.modal-header {
   padding: 20px;
   cursor: pointer;
   border-radius: 5px;
+  width: 100% !important;
+  margin-right: 15px;
   background: var(--autharmor-highlight-color);
   transition: all 0.3s ease;
 }

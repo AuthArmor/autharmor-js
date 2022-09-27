@@ -81,6 +81,7 @@ interface FormMountOptions {
   usernameless?: boolean;
   preferences?: Partial<FormPreferences>;
   styles?: Partial<FormStyles>;
+  defaultTab?: "login" | "register";
   visualVerify?: boolean;
 }
 
@@ -88,6 +89,7 @@ const defaultOptions: FormMountOptions = {
   methods: ["authenticator", "magiclink-email", "webauthn"],
   usernameless: true,
   visualVerify: false,
+  defaultTab: "login",
   styles: {
     accentColor: "#0bdbdb",
     backgroundColor: "#2a2d35",
@@ -150,6 +152,15 @@ class SDK {
   private debug: DebugSettings = {
     url: "https://auth.autharmor.dev"
   };
+  textTimer?: NodeJS.Timer;
+  textFadeTimer?: NodeJS.Timer;
+  textIndex = 0;
+  loadingText = [
+    "Securing Connections...",
+    "Checking Encryption...",
+    "Validating Ciphers...",
+    "Encoding Data..."
+  ];
 
   constructor({
     clientSdkApiKey = "",
@@ -388,12 +399,53 @@ class SDK {
     document
       .querySelector(`.${styles.loadingOverlay}`)
       ?.classList.add(styles.hidden);
+
+    if (this.textTimer) {
+      clearInterval(this.textTimer);
+    }
+
+    if (this.textFadeTimer) {
+      clearTimeout(this.textFadeTimer);
+    }
   };
 
   private showLoading = () => {
     document
       .querySelector(`.${styles.loadingOverlay}`)
       ?.classList.remove(styles.hidden);
+
+    if (this.textTimer) {
+      clearInterval(this.textTimer);
+    }
+
+    if (this.textFadeTimer) {
+      clearTimeout(this.textFadeTimer);
+    }
+
+    document
+      .querySelector(`.${styles.loadingText}`)
+      ?.classList.remove(styles.hidden);
+
+    this.textTimer = setInterval(() => {
+      this.swapLoadingText();
+    }, 1000);
+  };
+
+  private swapLoadingText = () => {
+    if (this.textIndex > this.loadingText.length - 1) {
+      this.textIndex = 0;
+    }
+
+    const loadingTextElement = document.querySelector(`.${styles.loadingText}`);
+
+    if (loadingTextElement) {
+      loadingTextElement.classList.add(styles.hidden);
+      this.textFadeTimer = setTimeout(() => {
+        loadingTextElement.textContent = this.loadingText[this.textIndex];
+        loadingTextElement.classList.remove(styles.hidden);
+        this.textIndex += 1;
+      }, 250);
+    }
   };
 
   private showPopupQRCode = (keepButton?: boolean) => {
@@ -411,25 +463,16 @@ class SDK {
       clearTimeout(this.QRAnimationTimer);
     }
 
-    if (isMobile()) {
-      window.open((qrCodeContainer as HTMLDivElement).dataset.link, "_blank");
-    }
+    // if (isMobile() && !isIOS()) {
+    //   window.open((qrCodeContainer as HTMLDivElement).dataset.link, "_blank");
+    // }
 
     if (!keepButton) {
       showPopupQrBtn?.classList.add(styles.hidden);
     } else {
       showPopupQrBtn?.classList.remove(styles.hidden);
-      showPopupQrBtn?.setAttribute(
-        "href",
-        (qrCodeContainer as HTMLDivElement).dataset.link!
-      );
-      openBtns?.forEach(openBtn =>
-        openBtn.setAttribute(
-          "href",
-          (qrCodeContainer as HTMLDivElement).dataset.link!
-        )
-      );
     }
+
     autharmorIcon?.classList.add(styles.hidden);
     this.QRAnimationTimer = setTimeout(() => {
       qrCodeContainer?.classList.remove(styles.hidden);
@@ -519,12 +562,20 @@ class SDK {
                 isMobile()
                   ? `
                       <div class="${styles.mobileUsernameless}">
-                        <p class="${styles.mobileUsernamelessNote}">Your request has been initialized! You can click the button below to approve it through the app</p>
-                        <a class="${styles.mobileUsernamelessBtn}" target="_blank" rel="noopener noreferrer">
-                          <div class="${styles.mobileUsernamelessIconContainer}">
-                            <img src="${logo}" class="${styles.mobileUsernamelessIcon}" />
+                        <p class="${
+                          styles.mobileUsernamelessNote
+                        }">Your request has been initialized! You can click the button below to approve it through the app</p>
+                        <a href="#" target="_blank" class="${
+                          styles.mobileUsernamelessBtn
+                        }">
+                          <div class="${
+                            styles.mobileUsernamelessIconContainer
+                          }">
+                            <img src="${logo}" class="${
+                      styles.mobileUsernamelessIcon
+                    }" />
                           </div>
-                          Login with App
+                          Login with App (${isIOS() ? "iOS" : "Android"})
                         </a>
                       </div>
                     `
@@ -549,7 +600,7 @@ class SDK {
           ${
             isMobile()
               ? `
-                  <a target="_blank" rel="noreferrer noopener" class="${styles.showPopupQrcodeBtn}">
+                  <a rel="noreferrer noopener" class="${styles.showPopupQrcodeBtn}">
                     <p class="${styles.qrcodeBtnText}">Tap here to launch request in app</p>
                   </a>
                 `
@@ -1446,26 +1497,24 @@ class SDK {
     const now = new Date().valueOf();
 
     if (isIOS()) {
-      const newTab = window.open(link, "_blank");
-      setTimeout(() => {
-        console.log(newTab);
-        // if (newTab) {
-        //   // if (new Date().valueOf() - now > 100) {
-        //   //   newTab.close(); // scenario #4
-        //   //   // old way - "return" - but this would just leave a blank page in users browser
-        //   //   //return;
-        //   // }
-
-        //   // const message =
-        //   //   "AuthArmor app is not installed in your phone, would you like to download it from the App Store?";
-
-        //   // if (window.confirm(message)) {
-        //   //   newTab.location.href =
-        //   //     "https://apps.apple.com/us/app/auth-armor-authenticator/id1502837764";
-        //   //   return;
-        //   }
-        // }
-      }, 50);
+      // const newTab = window.open(link, "_blank");
+      // setTimeout(() => {
+      //   console.log(newTab);
+      //   // if (newTab) {
+      //   //   // if (new Date().valueOf() - now > 100) {
+      //   //   //   newTab.close(); // scenario #4
+      //   //   //   // old way - "return" - but this would just leave a blank page in users browser
+      //   //   //   //return;
+      //   //   // }
+      //   //   // const message =
+      //   //   //   "AuthArmor app is not installed in your phone, would you like to download it from the App Store?";
+      //   //   // if (window.confirm(message)) {
+      //   //   //   newTab.location.href =
+      //   //   //     "https://apps.apple.com/us/app/auth-armor-authenticator/id1502837764";
+      //   //   //   return;
+      //   //   }
+      //   // }
+      // }, 50);
     }
   };
 
@@ -1551,6 +1600,18 @@ class SDK {
         const popupQRCode = document.querySelector(`.${styles.qrCodeImg}`);
         popupQRCode?.classList.remove(styles.hidden);
         popupQRCode?.setAttribute("src", qrCode.src);
+        document
+          .querySelectorAll(`.${styles.mobileUsernamelessBtn}`)
+          .forEach(btn =>
+            btn.setAttribute(
+              "href",
+              this.processLink(body.qr_code_data, isIOS())
+            )
+          );
+
+        if (isIOS()) {
+          this.showPopupQRCode(false);
+        }
 
         if (popupQRCode?.parentElement) {
           popupQRCode.parentElement.dataset.link = this.processLink(
@@ -1648,23 +1709,6 @@ class SDK {
     }
 
     if (type === "magiclink-email") {
-      const address = options?.username ?? email.value;
-      if (
-        !address ||
-        !/^\w+([\.\+-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(address)
-      ) {
-        const errorMessage = "Please specify a valid email";
-        this.hideLoading();
-        container!.classList.add(styles.invalid);
-        inputErrorMessage!.textContent = errorMessage;
-
-        console.log(`#login .${styles.inputContainer}`);
-
-        this.closeModal();
-
-        return;
-      }
-
       pushNotice.textContent = "We've sent a magic link to your email";
       qrCodeBtn.textContent = isMobile()
         ? "Tap here to launch request in app"
@@ -1809,6 +1853,9 @@ class SDK {
               <div></div>
               <div></div>
             </div>
+            <p class="${styles.loadingText}">
+              ${this.loadingText[this.textIndex]}
+            </p>
           </div>
           <div class="${styles.criticalError} ${styles.hidden}">
             <div class="${styles.errorIcon}">
@@ -1822,17 +1869,23 @@ class SDK {
             </p>
           </div>
           <div class="${styles.tabs}">
-            <div class="${styles.tab} ${styles.activeTab}" data-tab="login">
+            <div class="${styles.tab} ${
+      parsedOptions.defaultTab === "login" ? styles.activeTab : ""
+    }" data-tab="login">
               Login
             </div>
-            <div class="${styles.tab}" data-tab="register">Register</div>
+            <div class="${styles.tab} ${
+      parsedOptions.defaultTab === "register" ? styles.activeTab : ""
+    }" data-tab="register">Register</div>
           </div>
           <form
             id="login"
             class="${styles.tabContent}" 
-            style="display: block; ${
-              !authenticatorEnabled ? "min-height: 164px;" : ""
-            }">
+            style="${
+              parsedOptions.defaultTab === "login"
+                ? "display: block;"
+                : "display: none;"
+            } ${!authenticatorEnabled ? "min-height: 164px;" : ""}">
             <div class="${styles.infoContainer}">
               ${
                 authenticatorEnabled
@@ -1845,7 +1898,7 @@ class SDK {
                         ? `
                             <div class="${styles.mobileUsernameless}">
                               <p class="${styles.mobileUsernamelessTitle}">Usernameless login</p>
-                              <a class="${styles.mobileUsernamelessBtn}" target="_blank" rel="noopener noreferrer">
+                              <a href="#" target="_blank" class="${styles.mobileUsernamelessBtn}">
                                 <div class="${styles.mobileUsernamelessIconContainer}">
                                   <img src="${logo}" class="${styles.mobileUsernamelessIcon}" />
                                 </div>
@@ -1901,7 +1954,11 @@ class SDK {
           <form
             id="register"
             class="${styles.tabContent}" 
-            style="${!authenticatorEnabled ? "min-height: 164px;" : ""}">
+            style="${!authenticatorEnabled ? "min-height: 164px;" : ""} ${
+      parsedOptions.defaultTab === "register"
+        ? "display: block;"
+        : "display: none;"
+    }">
             <div class="${styles.infoContainer}">
               <p class="${styles.headerText}">
                 Sign up with your username
@@ -1935,20 +1992,13 @@ class SDK {
               !parsedOptions.methods ||
               parsedOptions.methods?.includes("authenticator")
                 ? `
-                  <div class="${
-                    styles.card
-                  }" data-card="push" style="width: calc((100% / ${parsedOptions
-                    .methods?.length ?? 3}) - 15px)">
+                  <div class="${styles.card}" data-card="push">
                     <div class="${styles.icon}">
                       <img src="${phoneIcon}" alt="icon" />
                     </div>
                     <p class="${styles.title}">Push Authentication</p>
                     <p class="${styles.textContainer}">
-                      <span class="${
-                        styles.text
-                      }">Send me a push message to my Auth Armor authenticator to login</span> <span class="${
-                    styles.devices
-                  }"></span>
+                      <span class="${styles.text}">Send me a push message to my Auth Armor authenticator to login</span> <span class="${styles.devices}"></span>
                     </p>
                   </div>
                   `
@@ -1959,20 +2009,13 @@ class SDK {
               !parsedOptions.methods ||
               parsedOptions.methods.includes("magiclink-email")
                 ? `
-                  <div class="${styles.card} ${
-                    styles.email
-                  }" data-card="magiclink-email" style="width: calc((100% / ${parsedOptions
-                    .methods?.length ?? 3}) - 15px)">
+                  <div class="${styles.card} ${styles.email}" data-card="magiclink-email">
                     <div class="${styles.icon}">
                       <img src="${emailIcon}" alt="icon" />
                     </div>
                     <p class="${styles.title}">Magic Link Login Email</p>
                     <p class="${styles.textContainer}">
-                      <span class="${
-                        styles.text
-                      }">Send me a magic link email to login</span> <span class="${
-                    styles.devices
-                  }"></span>
+                      <span class="${styles.text}">Send me a magic link email to login</span> <span class="${styles.devices}"></span>
                     </p>
                   </div>`
                 : ""
@@ -1982,20 +2025,13 @@ class SDK {
               !parsedOptions.methods ||
               parsedOptions.methods.includes("webauthn")
                 ? `
-                  <div class="${
-                    styles.card
-                  }" data-card="webauthn" style="width: calc((100% / ${parsedOptions
-                    .methods?.length ?? 3}) - 15px)">
+                  <div class="${styles.card}" data-card="webauthn">
                     <div class="${styles.icon}">
                       <img src="${emailIcon}" alt="icon" />
                     </div>
                     <p class="${styles.title}">WebAuthn</p>
                     <p class="${styles.textContainer}">
-                      <span class="${
-                        styles.text
-                      }">Login using WebAuthn</span> <span class="${
-                    styles.devices
-                  }"></span>
+                      <span class="${styles.text}">Login using WebAuthn</span> <span class="${styles.devices}"></span>
                     </p>
                   </div>`
                 : ""
@@ -2005,6 +2041,10 @@ class SDK {
         </div>
       </div>
     `;
+
+    this.textIndex += 1;
+
+    this.showLoading();
 
     const tabs = document.querySelectorAll(`.${styles.tab}`) as NodeListOf<
       HTMLDivElement
@@ -2334,15 +2374,6 @@ class SDK {
     }
 
     this.updateModalText();
-    document
-      .querySelectorAll(`.${styles.mobileUsernamelessBtn}`)
-      .forEach(btn => {
-        if (isIOS()) {
-          btn.addEventListener("click", e => {
-            e.preventDefault();
-          });
-        }
-      });
   };
 
   getPopupMessage = (method: any) => {
