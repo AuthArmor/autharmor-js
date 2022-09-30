@@ -170,7 +170,7 @@ class SDK {
     getNonce,
     debug = { url: "https://auth.autharmor.dev" }
   }: SDKConfig) {
-    console.log("AuthArmor SDK v3.0.0-beta.5");
+    console.log("AuthArmor SDK v3.0.0");
 
     if (registerRedirectUrl) {
       this.registerRedirectUrl = registerRedirectUrl;
@@ -184,10 +184,10 @@ class SDK {
       throw new Error("Please specify a valid public key!");
     }
 
-    console.log(debug);
-
-    if (debug) {
+    if (debug && config.devMode) {
       this.debug = debug;
+    } else {
+      this.debug = { url: "https://auth.autharmor.com" };
     }
 
     if (getNonce) {
@@ -391,8 +391,8 @@ class SDK {
   private executeEvent = (eventName: Events, ...data: unknown[]) => {
     this.ensureEventExists(eventName);
 
-    const listeners = this.eventListeners.get(eventName);
-    listeners?.map(listener => listener(...data));
+    const listeners = this.eventListeners.get(eventName) ?? [];
+    return Promise.all(listeners.map(listener => listener(...data)));
   };
 
   private hideLoading = () => {
@@ -409,7 +409,7 @@ class SDK {
     }
   };
 
-  private showLoading = () => {
+  private showLoading = (type?: string) => {
     document
       .querySelector(`.${styles.loadingOverlay}`)
       ?.classList.remove(styles.hidden);
@@ -422,9 +422,17 @@ class SDK {
       clearTimeout(this.textFadeTimer);
     }
 
-    document
-      .querySelector(`.${styles.loadingText}`)
-      ?.classList.remove(styles.hidden);
+    const loadingText = document.querySelector(`.${styles.loadingText}`);
+
+    loadingText?.classList.remove(styles.hidden);
+
+    if (type === "success") {
+      if (loadingText) {
+        loadingText.innerHTML = `<b>Authenticated!</b><br><span>Please wait...</span>`;
+      }
+
+      return;
+    }
 
     this.textTimer = setInterval(() => {
       this.swapLoadingText();
@@ -516,8 +524,6 @@ class SDK {
         `${this.debug.url}/api/v3/config/sdkinit?apikey=${this.publicKey}`
       ).then(res => res.json());
 
-      console.log(config);
-
       return {
         recaptcha: {
           enabled: config.google_v3_recaptcha_enabled,
@@ -562,20 +568,14 @@ class SDK {
                 isMobile()
                   ? `
                       <div class="${styles.mobileUsernameless}">
-                        <p class="${
-                          styles.mobileUsernamelessNote
-                        }">Your request has been initialized! You can click the button below to approve it through the app</p>
-                        <a href="#" target="_blank" class="${
-                          styles.mobileUsernamelessBtn
-                        }">
-                          <div class="${
-                            styles.mobileUsernamelessIconContainer
-                          }">
-                            <img src="${logo}" class="${
-                      styles.mobileUsernamelessIcon
-                    }" />
+                        <p class="${styles.mobileUsernamelessNote}">Your request has been initialized! You can click the button below to approve it through the app</p>
+                        <a href="#" target="_blank" class="${styles.mobileUsernamelessBtn}">
+                          <div class="${styles.mobileUsernamelessIconContainer}">
+                            <img src="${logo}" class="${styles.mobileUsernamelessIcon}" />
                           </div>
-                          Login with App (${isIOS() ? "iOS" : "Android"})
+                          <span class="${styles.mobileUsernamelessBtnText}">
+                            Login with App
+                          </span>
                         </a>
                       </div>
                     `
@@ -942,12 +942,6 @@ class SDK {
       return;
     }
 
-    console.log(
-      body,
-      body?.auth_response_message === "timeout",
-      this.hasCalledValidate
-    );
-
     if (
       body.authenticator_enrollment_status !== "not_enrolled_or_not_found" &&
       !this.hasCalledValidate
@@ -1024,11 +1018,21 @@ class SDK {
       body?.auth_response_code === 8 &&
       !this.hasCalledValidate
     ) {
-      // TODO: Do something on success
-      this.hasCalledValidate = true;
-      this.executeEvent("authSuccess", { ...body, id, token });
-      this.updateMessage("Authenticated successfully!", "success");
-      this.hidePopup(2000);
+      try {
+        // TODO: Do something on success
+        this.hasCalledValidate = true;
+        this.updateMessage("Authenticated successfully!", "success");
+        this.hidePopup(2000);
+
+        if (usernameless) {
+          this.showLoading("success");
+        }
+
+        await this.executeEvent("authSuccess", { ...body, id, token });
+      } catch (err) {
+        this.hideLoading();
+        throw err;
+      }
     }
 
     if (
@@ -1180,7 +1184,7 @@ class SDK {
       this.showPopup("Loading QR Code...", true);
       this.updateMessage(
         isMobile()
-          ? "Please accept the request using the app"
+          ? "Please click the button above to start registration"
           : "Please scan the QR Code with your phone"
       );
       this.showPopupQRCode(false);
@@ -2119,6 +2123,18 @@ class SDK {
             return;
           }
 
+          const loginText = document.querySelector(
+            `.${styles.mobileUsernamelessBtnText}`
+          );
+          const loginNote = document.querySelector(
+            `.${styles.mobileUsernamelessNote}`
+          );
+          if (loginText && loginNote) {
+            loginNote.textContent =
+              "Your request has been initialized! You can click the button below to approve it through the app";
+            loginText.textContent = "Login with App";
+          }
+
           this.showLoading();
 
           const enrollments = await this.getUserEnrollments({
@@ -2223,6 +2239,19 @@ class SDK {
         if (btn.dataset.btn === "register") {
           if (!registerUsername.value) {
             return;
+          }
+
+          const registerText = document.querySelector(
+            `.${styles.mobileUsernamelessBtnText}`
+          );
+          const registerNote = document.querySelector(
+            `.${styles.mobileUsernamelessNote}`
+          );
+
+          if (registerText && registerNote) {
+            registerNote.textContent =
+              "To register, please open or download the Auth Armor app by clicking the button below";
+            registerText.textContent = "Register with App";
           }
 
           const messages = {
@@ -2384,7 +2413,7 @@ class SDK {
 
   processLink = (link: string, customScheme: boolean) => {
     const sanitizedLink = new URL(
-      link.replace("autharmor.com", "autharmor.dev")
+      config.devMode ? link.replace("autharmor.com", "autharmor.dev") : link
     );
 
     // if (customScheme) {
