@@ -48,6 +48,8 @@ export interface FormStyles {
   appBtn: string;
 }
 
+export type AttachmentTypes = "Any" | "CrossPlatform" | "Platform"
+
 interface Preferences {
   action_name: string;
   username: string;
@@ -58,6 +60,7 @@ interface Preferences {
     [x: string]: string;
   };
   origin_location_data: LocationData;
+  attachment_type: AttachmentTypes;
 }
 
 interface AuthenticatorPreferences extends Preferences {
@@ -1301,6 +1304,7 @@ class SDK {
     try {
       const payload = {
         username,
+        attachment_type: this.preferences?.register?.webauthn?.attachment_type ?? "Any",
         webauthn_client_id: this.webauthnClientId,
         nonce
       };
@@ -1393,6 +1397,7 @@ class SDK {
       const payload = {
         username,
         nonce,
+        attachment_type: this.preferences?.register?.webauthn?.attachment_type ?? "Any",
         webauthn_client_id: this.webauthnClientId
       };
 
