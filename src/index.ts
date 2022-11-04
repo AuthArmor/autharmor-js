@@ -9,6 +9,7 @@ import logo from "./assets/logo.png";
 import closeIcon from "./assets/cancel.svg";
 import refreshIcon from "./assets/refresh.svg";
 import phoneIcon from "./assets/phone.svg";
+import webauthnIcon from "./assets/webauthn.svg";
 import emailIcon from "./assets/email.svg";
 
 type Events =
@@ -48,7 +49,7 @@ export interface FormStyles {
   appBtn: string;
 }
 
-export type AttachmentTypes = "Any" | "CrossPlatform" | "Platform"
+export type AttachmentTypes = "Any" | "CrossPlatform" | "Platform";
 
 interface Preferences {
   action_name: string;
@@ -79,9 +80,27 @@ export interface FormPreferences {
   auth: FormAuthTypePreferences;
 }
 
+interface InternationalizationConfig {
+  auth: {
+    tabName: string;
+    scanTitle: string;
+    scanDesc: string;
+    usernameLabel: string;
+    usernameInput: string;
+    action: string;
+  };
+  register: {
+    tabName: string;
+    usernameLabel: string;
+    usernameInput: string;
+    action: string;
+  };
+}
+
 interface FormMountOptions {
   methods?: AuthMethods[];
   usernameless?: boolean;
+  i18n?: Partial<InternationalizationConfig>;
   preferences?: Partial<FormPreferences>;
   styles?: Partial<FormStyles>;
   defaultTab?: "login" | "register";
@@ -131,6 +150,23 @@ const isMobile = () => {
 
 const isIOS = () => !!navigator.userAgent.match(/(iPhone|iPad|iPod)/i)?.length;
 
+const defaultInternationalization: InternationalizationConfig = {
+  auth: {
+    tabName: "Login",
+    scanTitle: "Sign in using the Auth Armor Authenticator app",
+    scanDesc: "Scan this QR code using the app to sign in",
+    usernameLabel: "Sign in with your username",
+    usernameInput: "Username",
+    action: "Login"
+  },
+  register: {
+    tabName: "Register",
+    usernameLabel: "Sign up with your username",
+    usernameInput: "Username",
+    action: "Register"
+  }
+};
+
 class SDK {
   private publicKey?: string;
   private webauthnClientId?: string;
@@ -148,6 +184,9 @@ class SDK {
   private preferences?: FormPreferences;
   private recaptcha?: ReCaptchaInstance;
   private recaptchaSiteKey = "";
+  private i18n?: Partial<
+    InternationalizationConfig
+  > = defaultInternationalization;
   private customOptions?: Partial<Preferences>;
   private getNonce?: () => void;
   private visualVerify?: boolean;
@@ -701,7 +740,7 @@ class SDK {
           desc: "Send me a magic link email to register"
         },
         webauthn: {
-          title: "WebAuthN",
+          title: "WebAuthn",
           desc: "Register using your local device or security key"
         }
       },
@@ -715,7 +754,7 @@ class SDK {
           desc: "Send me a magic link email"
         },
         webauthn: {
-          title: "WebAuthN",
+          title: "WebAuthn",
           desc: "Authenticate using my local device or security key"
         }
       }
@@ -1304,7 +1343,8 @@ class SDK {
     try {
       const payload = {
         username,
-        attachment_type: this.preferences?.register?.webauthn?.attachment_type ?? "Any",
+        attachment_type:
+          this.preferences?.register?.webauthn?.attachment_type ?? "Any",
         webauthn_client_id: this.webauthnClientId,
         nonce
       };
@@ -1397,7 +1437,8 @@ class SDK {
       const payload = {
         username,
         nonce,
-        attachment_type: this.preferences?.register?.webauthn?.attachment_type ?? "Any",
+        attachment_type:
+          this.preferences?.register?.webauthn?.attachment_type ?? "Any",
         webauthn_client_id: this.webauthnClientId
       };
 
@@ -1752,6 +1793,7 @@ class SDK {
         document.querySelector(`.${styles.modalHeader}`)!.textContent = value;
         return value;
       }
+
       if (document.querySelector(`[data-card="${key}"] .${styles.text}`)) {
         document.querySelector(
           `[data-card="${key}"] .${styles.text}`
@@ -1802,6 +1844,19 @@ class SDK {
       timeout_in_seconds: 60
     };
 
+    const internationalization = options.i18n ?? defaultInternationalization;
+
+    this.i18n = {
+      auth: {
+        ...defaultInternationalization.auth,
+        ...(internationalization.auth ?? {})
+      },
+      register: {
+        ...defaultInternationalization.register,
+        ...(internationalization.register ?? {})
+      }
+    };
+
     const parsedPreferences: FormPreferences = {
       register: {
         magicLink: {
@@ -1819,6 +1874,7 @@ class SDK {
         webauthn: {
           ...defaultRegisterPreferences,
           timeout_in_seconds: 120,
+          attachment_type: "Any",
           ...(options.preferences?.register?.default ?? {}),
           ...(options.preferences?.register?.webauthn ?? {})
         }
@@ -1839,6 +1895,7 @@ class SDK {
         webauthn: {
           ...defaultLoginPreferences,
           timeout_in_seconds: 120,
+          attachment_type: "Any",
           ...(options.preferences?.auth?.default ?? {}),
           ...(options.preferences?.auth?.webauthn ?? {})
         }
@@ -1881,11 +1938,11 @@ class SDK {
             <div class="${styles.tab} ${
       parsedOptions.defaultTab === "login" ? styles.activeTab : ""
     }" data-tab="login">
-              Login
+              ${this.i18n?.auth?.tabName}
             </div>
             <div class="${styles.tab} ${
       parsedOptions.defaultTab === "register" ? styles.activeTab : ""
-    }" data-tab="register">Register</div>
+    }" data-tab="register">${this.i18n?.register?.tabName}</div>
           </div>
           <form
             id="login"
@@ -1900,7 +1957,7 @@ class SDK {
                 authenticatorEnabled
                   ? `
                     <p class="${styles.headerText}">
-                      Sign in using the Auth Armor Authenticator app
+                      ${this.i18n?.auth?.scanTitle}
                     </p>
                     ${
                       isMobile()
@@ -1923,7 +1980,7 @@ class SDK {
                                 <div class="${styles.timeoutBtn}">Refresh Code</div>
                               </div>
                             </div>
-                            <p class="${styles.desc}">Scan this QR code using the app to sign in</p>
+                            <p class="${styles.desc}">${this.i18n?.auth?.scanDesc}</p>
                           `
                     }
                     <div class="${styles.timerContainer}">
@@ -1939,13 +1996,13 @@ class SDK {
                   : ""
               }
               <p class="${styles.headerText}">
-                Sign in with your username
+                ${this.i18n?.auth?.usernameLabel}
               </p>
               <div class="${styles.inputContainer}">
                   <input
                     class="${styles.email} ${styles.loginEmail}" 
                     type="text" 
-                    placeholder="Username"
+                    placeholder="${this.i18n?.auth?.usernameInput}"
                   />
                   <div class="${styles.inputErrorMessage}">
                     An unknown error has occurred
@@ -1957,7 +2014,7 @@ class SDK {
       parsedOptions.methods?.includes("webauthn") ? "" : styles.disabled
     }"
               data-btn="login">
-              <p>Login</p>
+              <p>${this.i18n?.auth?.action}</p>
             </div>
           </form>
           <form
@@ -1970,13 +2027,13 @@ class SDK {
     }">
             <div class="${styles.infoContainer}">
               <p class="${styles.headerText}">
-                Sign up with your username
+                ${this.i18n?.register?.usernameLabel}
               </p>
               <div class="${styles.inputContainer}">
                 <input 
                   class="${styles.email}" 
                   type="text" 
-                  placeholder="Username"
+                  placeholder="${this.i18n?.register?.usernameInput}"
                 />
                 <div class="${styles.inputErrorMessage}">
                   An unknown error has occurred
@@ -1984,7 +2041,7 @@ class SDK {
               </div>
             </div>
             <div class="${styles.btn} ${styles.disabled}" data-btn="register">
-              <p>Register</p>
+              <p>${this.i18n?.register?.action}</p>
             </button>
           </form>
         </div>
@@ -2036,7 +2093,7 @@ class SDK {
                 ? `
                   <div class="${styles.card}" data-card="webauthn">
                     <div class="${styles.icon}">
-                      <img src="${emailIcon}" alt="icon" />
+                      <img src="${webauthnIcon}" alt="icon" />
                     </div>
                     <p class="${styles.title}">WebAuthn</p>
                     <p class="${styles.textContainer}">
@@ -2261,10 +2318,9 @@ class SDK {
 
           const messages = {
             title: "Pick your registration method",
-            push:
-              "Send me a push message to my Auth Armor authenticator to register",
+            push: "Register your mobile device",
             magiclink: "Send me a magic link email to register",
-            webauthn: "Register using WebAuthn"
+            webauthn: "Register using WebAuthn or Passkey"
           };
 
           this.setCardText(messages);

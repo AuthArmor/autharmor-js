@@ -119,3 +119,28 @@ SDK.on("<event_name>", () => {
   // Do something...
 });
 ```
+
+## 🌐 Internationalization
+
+Need to localize the AuthArmor form to match up with your user's preferred language, or want to change some of the text on the form to be consistent with terms that are used on your site frequently (Sign in vs Login, etc...)? You can define a list of the text you'd like to modify on mount as shown below:
+
+```js
+AuthArmor.form.mount("#form", {
+  i18n: {
+    auth: {
+      tabName: "Sign in",
+      scanTitle: "Sign in using the Auth Armor Authenticator app",
+      scanDesc: "Scan this QR code using the app to sign in",
+      usernameLabel: "Sign in with your username",
+      usernameInput: "Username",
+      action: "Sign in"
+    },
+    register: {
+      tabName: "Sign up",
+      usernameLabel: "Sign up with your username",
+      usernameInput: "Username",
+      action: "Sign up"
+    }
+  }
+});
+```
