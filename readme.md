@@ -30,17 +30,16 @@ In order to initialize the SDK, you'll have to create a new instance of the Auth
 
 ```javascript
 const SDK = new AuthArmorSDK({
-  url: "https://api.example.com", // specify your backend's url
-  pathPrefix: "/auth/autharmor", // specify a prefix where the Backend SDK is mounted, this is set to "/auth/autharmor" by default in both the Client-side and the Backend SDKs
+  endpointBasePath: "https://api.example.com/auth/autharmor", // specify your backend's url
   polling: false // Specify whether you'd like to receive auth status updates via WebSockets (default) or HTTP polling
 });
 ```
 
-## 🧲 Invites
+## 🧲 Registration Invites
 
-### Generating a new invite
+### Generating a new Registration invite
 
-You can easily generate invites to your app by doing the following:
+You can easily generate registration invites to your app by doing the following:
 
 ```javascript
 // Initialize the SDK
@@ -51,7 +50,8 @@ const SDK = new AuthArmorSDK({
 // Generate a new invite
 const invite = await SDK.invite.generateInviteCode({
   nickname: "", // Specify the invite's nickname
-  referenceId: "" // Specify a reference ID for the invite
+  referenceId: "", // Specify a reference ID for the invite
+  headers: {} // Specify any custom headers you'd like to send over to your backend along with your invite request
 });
 
 console.log(invite);
@@ -72,8 +72,12 @@ console.log(invite);
 Once an invite is generated, there are two methods for having the user consume the invite. You can either have your app show a QR Code which is then scannable using the AuthArmor app, or you can show a browser popup which prompts the user to accept the invite directly through the AuthArmor site:
 
 ```javascript
-// Display QR Code for user to scan using the AuthArmor app
-invite.getQRCode(); // Returns a base64 representation of the QR Code image which can be used by supplying it to an <img> tag
+// Display QR Code for user to scan using the AuthArmor app, you can also optionally customize the QR Code's color palette
+invite.getQRCode({
+  backgroundColor: "#000",
+  fillColor: "#10beef",
+  borderRadius: 10
+}); // Returns a base64 representation of the QR Code image which can be used by supplying it to an <img> tag
 
 // Or open the invite link in a popup window
 invite.openInviteLink();
@@ -95,32 +99,24 @@ try {
     shortMessage: "<string>", // Specify a description for the auth request which shows up when the auth request is opened in the mobile app
     visualVerify: "<boolean>", // Specify whether you'd like to enable Visual Verify feature for this auth request (default: false)
     showPopup: "<boolean>", // Specify if you'd like to show the AuthArmor popup when the authentication starts (default: true)
-    qrCodeStyle: {
-      borderRadius: "<number>",
-      background: "<string>",
-      foreground: "<string>"
-    },
+    headers: {}, // Specify any custom headers you'd like to send over to your backend along with your auth request
     locationData: {
       latitude: "<string>",
       longitude: "<string>"
     },
     // This event listener is triggered once the user approves an auth request
     onSuccess: ({
-      data: {
-          response,
-          nickname,
-          token,
-          authorized
-      },
+      response,
+      nickname,
+      token,
+      authorized,
       metadata
     }) => void,
     // This event listener is triggered once the user declines an auth request
     onFailure: ({
-      data: {
-          response,
-          nickname,
-          authorized,
-      },
+      response,
+      nickname,
+      authorized,
       metadata
     }) => void
   });
@@ -128,6 +124,34 @@ try {
 } catch (err) {
   console.error("The request was declined or has timed out!", err);
 }
+```
+
+### Creating a Usernameless auth request
+
+AuthArmor also supports performing Usernameless authentication requests which require the user to only scan a QR Code through the AuthArmor app and approve the login request.
+
+You can generate the QR Code and render it in your own app by doing the following:
+
+```javascript
+const authRequest = await AuthArmor.auth.authenticate({
+  onSuccess: response => {
+    // Do something with the success response
+  },
+  onFailure: response => {
+    // Do something with the failure response
+  }
+});
+// Get the Auth request QR Code Image, you can also optionally customize the QR Code's color palette
+const qrCodeImage = authRequest.getQRCode({
+  backgroundColor: "#000",
+  fillColor: "#10beef",
+  borderRadius: 10
+});
+// Get time left before QR Code expires (in milliseconds)
+const timeLeft = authRequest.getTimeLeft();
+
+// Display the QR Code in your own site
+document.querySelector(".qr-code-image").src = qrCodeImage;
 ```
 
 ## 💥 Events

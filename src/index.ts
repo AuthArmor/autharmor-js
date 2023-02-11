@@ -1,6 +1,7 @@
-import Axios, { AxiosResponse } from "axios";
+import Axios, { Response } from "redaxios";
 // @ts-ignore
 import kjua from "kjua";
+import generateColor from "string-to-color";
 import config from "./config/index";
 import qrCode from "./assets/qr-code.svg";
 import logo from "./assets/logo.png";
@@ -21,9 +22,21 @@ type Events =
 
 type EventListener = (...data: any) => void | Promise<void>;
 
+interface InviteNicknameOptions {
+  nickname: string;
+  headers?: Record<string, string>;
+}
+
+interface InviteIdOptions {
+  id: string;
+  headers?: Record<string, string>;
+}
+
 interface InviteOptions {
   nickname: string;
   referenceId?: string;
+  reset?: boolean;
+  headers?: Record<string, string>;
 }
 
 interface InviteData {
@@ -32,38 +45,38 @@ interface InviteData {
 }
 
 interface AuthRequest {
-  authRequest: {
-    auth_request_id: string;
-    auth_profile_id: string;
-    visual_verify_value: string;
-    response_code: number;
-    response_message: string;
-    qr_code_data: string;
-    push_message_sent: boolean;
-  };
-  requestToken: string;
-  timeout: number;
+  auth_request_id: string;
+  auth_profile_id: string;
+  visual_verify_value: string;
+  response_code: number;
+  response_message: string;
+  qr_code_data: string;
+  push_message_sent: boolean;
+  timeout_in_seconds: number;
+  timeout_utc_datetime: string;
 }
 
-interface AuthenticateWebsocketSuccess {
-  data: {
-    response: any;
-    nickname: string;
-    token: string;
-    authorized: true;
-  };
+type AuthenticateResponse =
+  | AuthenticateResponseSuccess
+  | AuthenticateResponseFail;
+
+interface AuthenticateResponseSuccess {
+  response: any;
+  nickname: string;
+  token: string;
+  authorized: true;
+  status: "Success" | "Timeout" | "Declined";
   /* Custom response received from auth server */
-  metadata: any;
+  metadata?: any;
 }
 
-interface AuthenticateWebsocketFail {
-  data: {
-    response: any;
-    nickname: string;
-    authorized: false;
-  };
+interface AuthenticateResponseFail {
+  response: any;
+  nickname: string;
+  authorized: false;
+  status: "Success" | "Timeout" | "Declined";
   /* Custom response received from auth server */
-  metadata: any;
+  metadata?: any;
 }
 
 interface LocationData {
@@ -78,14 +91,29 @@ interface AuthenticateArgs {
   shortMessage: string;
   visualVerify: boolean;
   showPopup: boolean;
+  headers?: Record<string, string>;
   qrCodeStyle: {
     borderRadius: number;
     background: string;
     foreground: string;
   };
   locationData: LocationData;
-  onSuccess: (data: AuthenticateWebsocketSuccess) => any;
-  onFailure: (data: AuthenticateWebsocketFail) => any;
+  onSuccess: (data: AuthenticateResponseSuccess) => any;
+  onFailure: (data: AuthenticateResponseFail) => any;
+}
+
+interface OnAuthResponse {
+  authResponse: AuthenticateResponse;
+  redirectedUrl?: string;
+  onSuccess: (data: AuthenticateResponseSuccess) => any;
+  onFailure: (data: AuthenticateResponseFail) => any;
+}
+
+interface PollAuthRequest {
+  id: string;
+  headers?: Record<string, string>;
+  onSuccess: (data: AuthenticateResponseSuccess) => any;
+  onFailure: (data: AuthenticateResponseFail) => any;
 }
 
 declare global {
@@ -102,10 +130,13 @@ class SDK {
   private events: Events[];
   private eventListeners: Map<Events, EventListener[]>;
   private socket: WebSocket | undefined;
-  private requestCompleted: boolean = false;
+  private requestCompleted = false;
+  private polling: boolean;
+  private pollInterval = 500;
 
-  constructor({ url = "", pathPrefix = "/auth/autharmor", polling = false }) {
-    this.url = this.processUrl(url) + this.processUrl(pathPrefix);
+  constructor({ endpointBasePath = "", polling = false }) {
+    this.url = this.processUrl(endpointBasePath);
+    this.polling = polling;
     Axios.defaults.baseURL = this.url;
 
     // Supported events
@@ -223,9 +254,15 @@ class SDK {
       const authMessage = document.querySelector(".auth-message");
       const authMessageText = document.querySelector(".auth-message-text");
       const popupOverlay = document.querySelector(".popup-overlay");
+      const visualVerifyElement = $(".visual-verify-icon") as HTMLDivElement;
 
       if (popupOverlay) {
         popupOverlay.classList.add("hidden");
+      }
+
+      if (visualVerifyElement) {
+        visualVerifyElement.classList.add("hidden");
+        visualVerifyElement.textContent = "";
       }
 
       if (authMessage) {
@@ -240,7 +277,7 @@ class SDK {
     }, delay);
   };
 
-  private updateMessage = (message: string, status: string = "success") => {
+  private updateMessage = (message: string, status = "success") => {
     const authMessage = document.querySelector(".auth-message");
     const authMessageText = document.querySelector(".auth-message-text");
     if (authMessage && authMessageText) {
@@ -469,7 +506,7 @@ class SDK {
         }
 
         .autharmor-icon.hidden {
-          transform: scale(0.3) translateY(-70px);
+          transform: scale(0.3) translateY(calc(-100% + 38px));
           /* filter: grayscale(1); */
           opacity: 1;
           visibility: visible;
@@ -496,6 +533,24 @@ class SDK {
             animation: pulse 2s infinite;
         }
 
+        .visual-verify-icon {
+          position: absolute;
+          top: 15px;
+          left: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 35px;
+          height: 35px;
+          color: white;
+          font-weight: bold;
+          font-family: Poppins, Montserrat, sans-serif;
+          background-color: #404040;
+          font-size: 14px;
+          border-radius: 100px;
+          transition: all .2s ease;
+        }
+
         @keyframes pulse {
             0% {
                 box-shadow: 0 0 0 0 rgba(255,255,255,.4)
@@ -520,6 +575,7 @@ class SDK {
               <img src="${qrCode}" alt="QR Code Button" />
               <p class="popup-qrcode-btn-text">Hide QR Code</p>
             </div>
+            <div class="visual-verify-icon hidden"></div>
             <p class="push-notice">We've sent a push message to your device(s)</p>
             <img src="${logo}" alt="AuthArmor Icon" class="autharmor-icon" />
             <div class="qr-code-img-container hidden">
@@ -576,6 +632,13 @@ class SDK {
       qrCodeContainer?.classList.add("hidden");
       autharmorIcon?.classList.remove("hidden");
       showPopupBtn?.classList.remove("hidden");
+
+      const visualVerifyElement = $(".visual-verify-icon") as HTMLDivElement;
+
+      if (visualVerifyElement) {
+        visualVerifyElement.classList.add("hidden");
+        visualVerifyElement.textContent = "";
+      }
     });
 
     if (!polling) {
@@ -600,35 +663,41 @@ class SDK {
     };
 
     window.addEventListener("message", message => {
-      const parsedMessage = JSON.parse(message.data);
+      try {
+        if (message.origin === config.inviteURL) {
+          return;
+        }
+        
+        const parsedMessage = JSON.parse(message.data);
 
-      if (parsedMessage.type === "requestAccepted") {
-        this.executeEvent("inviteAccepted", parsedMessage);
-        this.updateMessage(parsedMessage.data.message);
-        this.requestCompleted = true;
-        this.hidePopup();
-      }
+        if (parsedMessage.type === "requestAccepted") {
+          this.executeEvent("inviteAccepted", parsedMessage);
+          this.updateMessage(parsedMessage.data.message);
+          this.requestCompleted = true;
+          this.hidePopup();
+        }
 
-      if (parsedMessage.type === "requestCancelled") {
-        this.executeEvent("inviteCancelled", parsedMessage);
-        this.updateMessage(parsedMessage.data.message, "danger");
-        this.requestCompleted = true;
-        this.hidePopup();
-      }
+        if (parsedMessage.type === "requestCancelled") {
+          this.executeEvent("inviteCancelled", parsedMessage);
+          this.updateMessage(parsedMessage.data.message, "danger");
+          this.requestCompleted = true;
+          this.hidePopup();
+        }
 
-      if (parsedMessage.type === "requestError") {
-        this.executeEvent("error", parsedMessage);
-        this.updateMessage(parsedMessage.data.message, "danger");
-        this.requestCompleted = true;
-        this.hidePopup();
-      }
+        if (parsedMessage.type === "requestError") {
+          this.executeEvent("error", parsedMessage);
+          this.updateMessage(parsedMessage.data.message, "danger");
+          this.requestCompleted = true;
+          this.hidePopup();
+        }
 
-      if (parsedMessage.type === "requestExists") {
-        this.executeEvent("inviteExists", parsedMessage);
-        this.updateMessage(parsedMessage.data.message, "warn");
-        this.requestCompleted = true;
-        this.hidePopup();
-      }
+        if (parsedMessage.type === "requestExists") {
+          this.executeEvent("inviteExists", parsedMessage);
+          this.updateMessage(parsedMessage.data.message, "warn");
+          this.requestCompleted = true;
+          this.hidePopup();
+        }
+      } catch (err) {}
     });
 
     window.AuthArmor.closedWindow = () => {
@@ -704,7 +773,9 @@ class SDK {
 
   private generateInviteCode = async ({
     nickname,
-    referenceId
+    headers,
+    referenceId,
+    reset
   }: InviteOptions) => {
     try {
       if (!nickname) {
@@ -715,9 +786,10 @@ class SDK {
         `/invite`,
         {
           nickname,
-          referenceId
+          referenceId,
+          reset
         },
-        { withCredentials: true }
+        { withCredentials: true, headers }
       );
 
       return {
@@ -727,7 +799,7 @@ class SDK {
           fillColor = "#2cb2b5",
           borderRadius = 0
         } = {}) => {
-          const stringifiedInvite = data.data.qr_code_data;
+          const stringifiedInvite = data.qr_code_data;
           const code = kjua({
             text: stringifiedInvite,
             rounded: borderRadius,
@@ -750,54 +822,94 @@ class SDK {
         }
       };
     } catch (err) {
-      throw err?.response?.data;
+      throw err?.data ?? err;
     }
   };
 
-  private confirmInvite = async (nickname: string) => {
+  private getInviteById = async ({ id, headers }: InviteIdOptions) => {
     try {
-      this.executeEvent("authenticating");
-      this.showPopup();
-      const { data } = await Axios.post(
-        `/invite/confirm`,
-        {
-          nickname
+      if (!id) {
+        throw new Error("Please specify a nickname for the invite code");
+      }
+
+      const { data } = await Axios.get(`/invite/${id}`, { headers });
+
+      return {
+        ...data,
+        getQRCode: ({
+          backgroundColor = "#202020",
+          fillColor = "#2cb2b5",
+          borderRadius = 0
+        } = {}) => {
+          const stringifiedInvite = data.qr_code_data;
+          const code = kjua({
+            text: stringifiedInvite,
+            rounded: borderRadius,
+            back: backgroundColor,
+            fill: fillColor
+          });
+          return code.src;
         },
-        { withCredentials: true }
-      );
-
-      if (data.response_message === "Timeout") {
-        this.updateMessage("Authentication request timed out", "warn");
-        this.hidePopup();
-        throw data;
-      }
-
-      if (data.response_message === "Success") {
-        this.updateMessage("Authentication request approved!", "success");
-        this.hidePopup();
-        return data;
-      }
-
-      if (data.response_message === "Declined") {
-        this.updateMessage("Authentication request declined", "danger");
-        this.hidePopup();
-        throw data;
-      }
-
-      this.hidePopup();
-      return data;
+        getInviteLink: () => {
+          return `${config.inviteURL}/?i=${data.invite_code}&aa_sig=${data.aa_sig}`;
+        },
+        openInviteLink: () => {
+          this.showPopup(undefined, true);
+          this.popupWindow(
+            `${config.inviteURL}/?i=${data.invite_code}&aa_sig=${data.aa_sig}`,
+            "Link your account with AuthArmor",
+            600,
+            400
+          );
+        }
+      };
     } catch (err) {
-      this.updateMessage(
-        err?.response?.data.errorMessage ?? "An error has occurred",
-        "danger"
-      );
-      this.hidePopup();
-      throw err?.response?.data
-        ? err?.response?.data.errorMessage ?? {
-            errorCode: 400,
-            errorMessage: "An unknown error has occurred"
-          }
-        : err;
+      throw err?.data ?? err;
+    }
+  };
+
+  private getInvitesByNickname = async ({
+    nickname,
+    headers
+  }: InviteNicknameOptions) => {
+    try {
+      if (!nickname) {
+        throw new Error("Please specify a nickname for the invite code");
+      }
+
+      const { data } = await Axios.get(`/invites/${nickname}`, { headers });
+
+      return {
+        ...data,
+        getQRCode: ({
+          backgroundColor = "#202020",
+          fillColor = "#2cb2b5",
+          borderRadius = 0
+        } = {}) => {
+          const stringifiedInvite = data.qr_code_data;
+          const code = kjua({
+            text: stringifiedInvite,
+            rounded: borderRadius,
+            back: backgroundColor,
+            fill: fillColor
+          });
+          return code.src;
+        },
+        getInviteLink: () => {
+          return `${config.inviteURL}/?i=${data.invite_code}&aa_sig=${data.aa_sig}`;
+        },
+        openInviteLink: () => {
+          this.showPopup(undefined, true);
+          this.popupWindow(
+            `${config.inviteURL}/?i=${data.invite_code}&aa_sig=${data.aa_sig}`,
+            "Link your account with AuthArmor",
+            600,
+            400
+          );
+        }
+      };
+    } catch (err) {
+      throw err?.data ?? err;
     }
   };
 
@@ -808,11 +920,118 @@ class SDK {
       });
       return data;
     } catch (err) {
-      throw err?.response?.data;
+      throw err?.data ?? err;
     }
   };
 
   // -- Authentication functionality
+
+  private onAuthResponse = ({
+    authResponse,
+    redirectedUrl,
+    onSuccess,
+    onFailure
+  }: OnAuthResponse) => {
+    const responseMessage =
+      authResponse.response?.auth_response?.response_message;
+    const nickname =
+      authResponse.response?.auth_response?.auth_details?.request_details
+        ?.auth_profile_details?.nickname;
+    const authorized = authResponse.response?.auth_response?.authorized;
+
+    console.debug({ authResponse });
+
+    if (redirectedUrl) {
+      this.updateMessage("Authentication request approved!", "success");
+      window.location.href = redirectedUrl;
+      return true;
+    }
+
+    if (authResponse.authorized) {
+      this.updateMessage("Authentication request approved!", "success");
+      onSuccess?.({
+        ...authResponse,
+        nickname,
+        authorized,
+        status: responseMessage
+      });
+      return true;
+    }
+
+    if (!authResponse.authorized && responseMessage === "Timeout") {
+      this.updateMessage("Authentication request timed out", "warn");
+      onFailure?.({
+        ...authResponse,
+        nickname,
+        authorized,
+        status: responseMessage
+      });
+      return true;
+    }
+
+    if (!authResponse.authorized && responseMessage === "Declined") {
+      this.updateMessage("Authentication request declined", "danger");
+      onFailure?.({
+        ...authResponse,
+        nickname,
+        authorized,
+        status: responseMessage
+      });
+      return true;
+    }
+
+    return false;
+  };
+
+  private pollAuthRequest = async ({
+    id,
+    headers,
+    onSuccess,
+    onFailure
+  }: PollAuthRequest) => {
+    try {
+      const {
+        data: authResponse,
+        redirect,
+        url
+      }: Response<any> = await Axios.get(`/authenticate/status/${id}`, {
+        headers
+      });
+
+      const urlMismatch = url !== this.url + `/authenticate/status/${id}`;
+
+      const pollComplete = this.onAuthResponse({
+        authResponse: {
+          authorized: authResponse.auth_response?.authorized,
+          response: authResponse,
+          nickname:
+            authResponse.auth_response?.auth_details.response_details
+              .auth_profile_details.nickname,
+          status: authResponse.auth_request_status_name,
+          token: ""
+        },
+        redirectedUrl: urlMismatch || redirect ? url : undefined,
+        onSuccess,
+        onFailure
+      });
+
+      if (!pollComplete) {
+        setTimeout(() => {
+          this.pollAuthRequest({
+            id,
+            onSuccess,
+            onFailure
+          });
+        }, this.pollInterval);
+        return;
+      }
+
+      this.hidePopup();
+    } catch (err) {
+      console.debug("An error has occurred while polling:", err);
+      this.hidePopup();
+    }
+  };
 
   private authenticate = async ({
     nickname,
@@ -822,16 +1041,18 @@ class SDK {
     actionName,
     shortMessage,
     locationData,
-    qrCodeStyle = {
-      borderRadius: 10,
-      background: "#202020",
-      foreground: "#2cb2b5"
-    },
+    headers,
     onSuccess,
     onFailure
   }: AuthenticateArgs) => {
     try {
-      const { data }: AxiosResponse<AuthRequest> = await Axios.post(
+      if (showPopup === true || (sendPush && showPopup !== false)) {
+        const qrCodeImage = $(".qr-code-img");
+        qrCodeImage?.classList.add("hidden");
+        this.showPopup();
+      }
+
+      const { data }: Response<AuthRequest> = await Axios.post(
         `/authenticate`,
         {
           nickname,
@@ -841,18 +1062,28 @@ class SDK {
           short_msg: shortMessage,
           origin_location_data: locationData
         },
-        { withCredentials: true }
+        { withCredentials: true, headers }
       );
       if (showPopup === true || (sendPush && showPopup !== false)) {
         const qrCode = kjua({
-          text: data.authRequest.qr_code_data,
-          rounded: qrCodeStyle?.borderRadius ?? 10,
-          back: qrCodeStyle?.background ?? "#202020",
-          fill: qrCodeStyle?.foreground ?? "#2cb2b5"
+          text: data.qr_code_data,
+          rounded: 10,
+          back: "#202020",
+          fill: "#2cb2b5"
         }).src;
         const qrCodeImage = $(".qr-code-img");
+        qrCodeImage?.classList.remove("hidden");
         qrCodeImage?.setAttribute("src", qrCode);
-        this.showPopup();
+      }
+
+      const visualVerifyElement = $(".visual-verify-icon") as HTMLDivElement;
+
+      if (visualVerifyElement && data.visual_verify_value) {
+        visualVerifyElement.classList.remove("hidden");
+        visualVerifyElement.textContent = data.visual_verify_value;
+        visualVerifyElement.style.backgroundColor = generateColor(
+          data.visual_verify_value
+        );
       }
 
       if (this.socket) {
@@ -860,8 +1091,7 @@ class SDK {
           JSON.stringify({
             event: "subscribe:auth",
             data: {
-              id: data.authRequest.auth_request_id,
-              requestToken: data.requestToken
+              id: data.auth_request_id
             }
           })
         );
@@ -870,42 +1100,11 @@ class SDK {
           try {
             const parsedData = JSON.parse(event.data);
             if (parsedData.event === "auth:response") {
-              if (
-                parsedData.data.response?.auth_response.response_message ===
-                "Success"
-              ) {
-                this.updateMessage(
-                  "Authentication request approved!",
-                  "success"
-                );
-                onSuccess?.({
-                  data: parsedData.data,
-                  metadata: parsedData.metadata
-                });
-              }
-
-              if (
-                parsedData.data.response?.auth_response.response_message ===
-                "Timeout"
-              ) {
-                this.updateMessage("Authentication request timed out", "warn");
-                onFailure?.({
-                  data: parsedData.data,
-                  metadata: parsedData.metadata
-                });
-              }
-
-              if (
-                parsedData.data.response?.auth_response.response_message ===
-                "Declined"
-              ) {
-                this.updateMessage("Authentication request declined", "danger");
-                onFailure?.({
-                  data: parsedData.data,
-                  metadata: parsedData.metadata
-                });
-              }
-
+              this.onAuthResponse({
+                authResponse: parsedData.data,
+                onSuccess,
+                onFailure
+              });
               this.hidePopup();
             }
           } catch (err) {
@@ -914,21 +1113,34 @@ class SDK {
         };
       }
 
+      if (this.polling) {
+        this.pollAuthRequest({
+          id: data.auth_request_id,
+          onFailure,
+          onSuccess
+        });
+      }
+
       return {
         ...data,
-        getTimeLeft: () => data.timeout - Date.now(),
-        getQRCode: () =>
+        getTimeLeft: () =>
+          new Date(data.timeout_utc_datetime).getTime() - Date.now(),
+        getQRCode: ({
+          backgroundColor = "#202020",
+          fillColor = "#2cb2b5",
+          borderRadius = 0
+        } = {}) =>
           kjua({
-            text: data.authRequest.qr_code_data,
-            rounded: qrCodeStyle?.borderRadius ?? 10,
-            back: qrCodeStyle?.background ?? "#202020",
-            fill: qrCodeStyle?.foreground ?? "#2cb2b5"
+            text: data.qr_code_data,
+            rounded: borderRadius ?? 10,
+            back: backgroundColor,
+            fill: fillColor
           }).src
       };
     } catch (err) {
       console.error(err);
       this.hidePopup();
-      throw err?.response?.data;
+      throw err?.data ?? err;
     }
   };
 
@@ -940,7 +1152,7 @@ class SDK {
       });
       return data;
     } catch (err) {
-      throw err?.response?.data;
+      throw err?.data ?? err;
     }
   };
 
@@ -950,7 +1162,8 @@ class SDK {
     return {
       generateInviteCode: this.generateInviteCode,
       setInviteData: this.setInviteData,
-      confirmInvite: this.confirmInvite
+      getInviteById: this.getInviteById,
+      getInvitesByNickname: this.getInvitesByNickname
     };
   }
 
