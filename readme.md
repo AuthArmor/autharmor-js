@@ -96,6 +96,34 @@ _Note: All of the form's CSS variables are prefixed with "autharmor" to avoid co
 }
 ```
 
+### Creating a Usernameless auth request
+
+AuthArmor also supports performing Usernameless authentication requests which require the user to only scan a QR Code through the AuthArmor app and approve the login request.
+
+You can generate the QR Code and render it in your own app by doing the following:
+
+```javascript
+const authRequest = await AuthArmor.auth.authenticate({
+  onSuccess: response => {
+    // Do something with the success response
+  },
+  onFailure: response => {
+    // Do something with the failure response
+  }
+});
+// Get the Auth request QR Code Image, you can also optionally customize the QR Code's color palette
+const qrCodeImage = authRequest.getQRCode({
+  backgroundColor: "#000",
+  fillColor: "#10beef",
+  borderRadius: 10
+});
+// Get time left before QR Code expires (in milliseconds)
+const timeLeft = authRequest.getTimeLeft();
+
+// Display the QR Code in your own site
+document.querySelector(".qr-code-image").src = qrCodeImage;
+```
+
 ## 💥 Events
 
 There are several events emitted by the SDK which you can attach to and have your app react accordingly.

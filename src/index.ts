@@ -676,7 +676,6 @@ class SDK {
         if (message.origin === config.inviteURL) {
           return;
         }
-
         const parsedMessage = JSON.parse(message.data);
 
         if (parsedMessage.type === "requestAccepted") {
