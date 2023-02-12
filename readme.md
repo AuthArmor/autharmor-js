@@ -30,99 +30,69 @@ In order to initialize the SDK, you'll have to create a new instance of the Auth
 
 ```javascript
 const SDK = new AuthArmorSDK({
-  endpointBasePath: "https://api.example.com/auth/autharmor", // specify your backend's url
-  polling: false // Specify whether you'd like to receive auth status updates via WebSockets (default) or HTTP polling
+  endpointBasePath: "https://api.example.com/auth/autharmor", // (Optional) specify your backend's url
+  publicKey: "...", // (Required) Specify the public-key you've generated from the AuthArmor Dashboard
+  webauthnClientId: "...", // (Optional) Specify the WebAuthn Client ID you've generated from the AuthArmor Dashboard
+  registerRedirectUrl: "...", // (Optional) Specify the URL that you'd like to redirect the user to after registering
+  authenticationRedirectUrl: "..." // (Optional) Specify the URL that you'd like to redirect the user to after logging in
 });
 ```
 
-## 🧲 Registration Invites
+## 📃 Render the form in your site's UI
 
-### Generating a new Registration invite
+The AuthArmor SDK also comes with a pre-built form that you can render anywhere throughout your site which already handles several edge cases out-of-the-box by writing a single line of code!
 
-You can easily generate registration invites to your app by doing the following:
-
-```javascript
-// Initialize the SDK
-const SDK = new AuthArmorSDK({
-  url: "https://api.example.com"
-});
-
-// Generate a new invite
-const invite = await SDK.invite.generateInviteCode({
-  nickname: "", // Specify the invite's nickname
-  referenceId: "", // Specify a reference ID for the invite
-  headers: {} // Specify any custom headers you'd like to send over to your backend along with your invite request
-});
-
-console.log(invite);
-/**
- * Returns:
- * {
- *   "nickname": "string",
- *   "invite_code": "string",
- *   "date_expires": "ISODate string",
- *   "invite_type": "string",
- *   "aa_sig": "string"
- * }
- */
+```js
+AuthArmor.form.mount(".example-form-class-name");
 ```
 
-### Using an invite
+The form has a couple of other options as well for advanced use, such as styling the form to use the same color scheme as your site or choosing which options you'd like to allow users to use for registration and authentication in your site.
 
-Once an invite is generated, there are two methods for having the user consume the invite. You can either have your app show a QR Code which is then scannable using the AuthArmor app, or you can show a browser popup which prompts the user to accept the invite directly through the AuthArmor site:
-
-```javascript
-// Display QR Code for user to scan using the AuthArmor app, you can also optionally customize the QR Code's color palette
-invite.getQRCode({
-  backgroundColor: "#000",
-  fillColor: "#10beef",
-  borderRadius: 10
-}); // Returns a base64 representation of the QR Code image which can be used by supplying it to an <img> tag
-
-// Or open the invite link in a popup window
-invite.openInviteLink();
+```js
+AuthArmor.form.mount(".example-form-class-name", {
+  usernameless: true, // (Boolean) Toggle usernameless auth
+  defaultTab: "login" // (String) Could be one of ("login" | "register"), specifies tab that's going to be selected once the user lands in the page
+  methods: [
+    // ('authenticator' | 'magiclink' | 'webauthn') Specify allowed authentication methods
+    "authenticator", // Push authentication/registration (Requires AuthArmor app)
+    "magiclink", // Login/Register using Email only
+    "webauthn" // Login/Register using WebAuthn (Requires webauthnClientId to be specified)
+  ],
+  styles: {
+    // Specify a color scheme for the form to match your theme
+    accentColor: "#0bdbdb",
+    backgroundColor: "#2a2d35",
+    tabColor: "#363a46",
+    qrCodeBackground: "#202020",
+    highlightColor: "#434857",
+    inputBackground: "#212329"
+  }
+});
 ```
 
-## 🔏 Authentication
+You can also modify the form's color scheme directly through CSS, this is useful especially if you're trying to have the form adapt for situations like the user switching between light/dark modes, etc...
 
-### Initializing an authentication request
+_Note: All of the form's CSS variables are prefixed with "autharmor" to avoid colliding with your own CSS variables_
 
-In order to initialize a login request for authenticating users to your site, you can simply call the `authenticate()` function with the nickname you wish to request an authentication request for along with some info regarding the authentication request (Title, short message, etc...). Once you call the `authenticate()` function, an AuthArmor overlay will appear on top of your app which reacts accordingly to the authentication request's status.
+```css
+:root {
+  --autharmor-accent-color: #0bdbdb;
+  --autharmor-background-color: #2a2d35;
+  --autharmor-tab-color: #363a46;
+  --autharmor-qr-code-background: #202020;
+  --autharmor-highlight-color: #434857;
+  --autharmor-input-background: #212329;
+}
 
-```javascript
-try {
-  console.log("Authenticating user...");
-  await SDK.auth.authenticate({
-    nickname: "<string>", // Specify which username you'd like to send the auth request to, leave empty to generate a usernameless QR Code request.
-    sendPush: "<boolean>", // Whether or not you'd want to send a push notification regarding the auth request, set it false to allow QR Code scanning only (default: true)
-    actionName: "<string>", // Specify the title that shows up when the auth request is opened in the mobile app
-    shortMessage: "<string>", // Specify a description for the auth request which shows up when the auth request is opened in the mobile app
-    visualVerify: "<boolean>", // Specify whether you'd like to enable Visual Verify feature for this auth request (default: false)
-    showPopup: "<boolean>", // Specify if you'd like to show the AuthArmor popup when the authentication starts (default: true)
-    headers: {}, // Specify any custom headers you'd like to send over to your backend along with your auth request
-    locationData: {
-      latitude: "<string>",
-      longitude: "<string>"
-    },
-    // This event listener is triggered once the user approves an auth request
-    onSuccess: ({
-      response,
-      nickname,
-      token,
-      authorized,
-      metadata
-    }) => void,
-    // This event listener is triggered once the user declines an auth request
-    onFailure: ({
-      response,
-      nickname,
-      authorized,
-      metadata
-    }) => void
-  });
-  console.log("User authenticated!");
-} catch (err) {
-  console.error("The request was declined or has timed out!", err);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --autharmor-accent-color: #0bdbdb;
+    --autharmor-background-color: #2a2d35;
+    --autharmor-tab-color: #363a46;
+    --autharmor-qr-code-background: #202020;
+    --autharmor-highlight-color: #434857;
+    --autharmor-input-background: #212329;
+  }
 }
 ```
 
@@ -160,15 +130,13 @@ There are several events emitted by the SDK which you can attach to and have you
 
 ### Available Events
 
-| Event Name         | Description                                                                |
-| ------------------ | -------------------------------------------------------------------------- |
-| inviteWindowOpened | Triggered as soon as the invite popup window is open                       |
-| popupOverlayOpened | Triggered once the AuthArmor overlay for invite/auth shows                 |
-| popupOverlayClosed | Triggered once the AuthArmor overlay for invite/auth is removed            |
-| inviteWindowClosed | Triggered as soon as the invite popup window is closed                     |
-| inviteAccepted     | Triggered once a user opens the invite popup and accepts it                |
-| inviteCancelled    | Triggered once a user opens the invite popup and presses the cancel button |
-| error              | Triggered once an error occurs while accepting/declining an invite         |
+| Event Name         | Description                                                        |
+| ------------------ | ------------------------------------------------------------------ |
+| popupOverlayOpened | Triggered once the AuthArmor overlay for invite/auth shows         |
+| popupOverlayClosed | Triggered once the AuthArmor overlay for invite/auth is removed    |
+| authenticated      | Triggered once an authentication is completed successfully         |
+| registerSuccess    | Triggered once a registration is completed successfully            |
+| error              | Triggered once an error occurs while accepting/declining an invite |
 
 ### Attaching an event listener
 
@@ -177,5 +145,30 @@ Attaching an event listener is pretty simple, all you'll have to do is call the 
 ```javascript
 SDK.on("<event_name>", () => {
   // Do something...
+});
+```
+
+## 🌐 Internationalization
+
+Need to localize the AuthArmor form to match up with your user's preferred language, or want to change some of the text on the form to be consistent with terms that are used on your site frequently (Sign in vs Login, etc...)? You can define a list of the text you'd like to modify on mount as shown below:
+
+```js
+AuthArmor.form.mount("#form", {
+  i18n: {
+    auth: {
+      tabName: "Sign in",
+      scanTitle: "Sign in using the Auth Armor Authenticator app",
+      scanDesc: "Scan this QR code using the app to sign in",
+      usernameLabel: "Sign in with your username",
+      usernameInput: "Username",
+      action: "Sign in"
+    },
+    register: {
+      tabName: "Sign up",
+      usernameLabel: "Sign up with your username",
+      usernameInput: "Username",
+      action: "Sign up"
+    }
+  }
 });
 ```
