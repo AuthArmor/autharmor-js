@@ -1,5 +1,9 @@
 # AuthArmor Javascript Client-side SDK
 
+## ▶️ Live Demo
+
+You can play around with a CodeSandbox to check out the SDK in action by visiting the following link: [Demo](https://codesandbox.io/s/autharmor-sdk-demo-fekcsi?file=/index.html)
+
 ## 🏁 Installation
 
 You can integrate the AuthArmor SDK into your website by installing and importing our NPM package:
