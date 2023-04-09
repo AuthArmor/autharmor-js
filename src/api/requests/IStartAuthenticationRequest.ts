@@ -1,5 +1,5 @@
 export interface IStartAuthenticationRequest {
-    recaptchaToken?: string;
+    reCaptchaToken?: string;
     originLocation?: IOriginLocation;
     timeoutSeconds: number;
     nonce: string;

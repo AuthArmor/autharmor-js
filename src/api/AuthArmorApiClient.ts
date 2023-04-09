@@ -104,14 +104,16 @@ export class AuthArmorApiClient {
      *
      * @returns The authentication session.
      *
-     * @remarks Poll the status of the session using the `getAuthenticationSessionStatus` method.
+     * @remarks
+     * Poll the status of the session using the `getAuthenticationSessionStatus` method. The
+     * ReCaptcha action is `auth`.
      */
     public async startAuthenticatorNotificationAuthenticationAsync({
         username,
         useVisualVerify,
         originLocation,
         timeoutSeconds,
-        recaptchaToken,
+        reCaptchaToken,
         nonce
     }: IStartAuthenticatorNotificationAuthenticationRequest): Promise<IAuthenticatorAuthenticationSession> {
         return await this.fetchAsync<IAuthenticatorAuthenticationSession>(
@@ -123,7 +125,7 @@ export class AuthArmorApiClient {
                 use_visual_verify: useVisualVerify,
                 origin_location_data: originLocation,
                 timeout_in_seconds: timeoutSeconds,
-                google_v3_recaptcha_token: recaptchaToken ?? "",
+                google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
             }
         );
@@ -140,7 +142,7 @@ export class AuthArmorApiClient {
         useVisualVerify,
         originLocation,
         timeoutSeconds,
-        recaptchaToken,
+        reCaptchaToken,
         nonce
     }: IStartAuthenticatorQrCodeAuthenticationRequest): Promise<IAuthenticatorQrCodeAuthenticationSession> {
         return await this.fetchAsync<IAuthenticatorQrCodeAuthenticationSession>(
@@ -151,7 +153,7 @@ export class AuthArmorApiClient {
                 use_visual_verify: useVisualVerify,
                 origin_location_data: originLocation,
                 timeout_in_seconds: timeoutSeconds,
-                google_v3_recaptcha_token: recaptchaToken ?? "",
+                google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
             }
         );
@@ -170,7 +172,7 @@ export class AuthArmorApiClient {
         attachmentType,
         originLocation,
         timeoutSeconds,
-        recaptchaToken,
+        reCaptchaToken,
         nonce
     }: IStartWebAuthnAuthenticationRequest): Promise<IWebAuthnAuthenticationSession> {
         return await this.fetchAsync<IWebAuthnAuthenticationSession>(
@@ -180,7 +182,7 @@ export class AuthArmorApiClient {
                 attachment_type: attachmentType,
                 origin_location_data: originLocation,
                 timeout_in_seconds: timeoutSeconds,
-                google_v3_recaptcha_token: recaptchaToken ?? "",
+                google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
             }
         );
@@ -221,7 +223,7 @@ export class AuthArmorApiClient {
         redirectUrl,
         originLocation,
         timeoutSeconds,
-        recaptchaToken,
+        reCaptchaToken,
         nonce
     }: IStartMagicLinkAuthenticationRequest): Promise<void> {
         return await this.fetchAsync<void>("/api/v3/auth/request/magicLink/start", "post", {
@@ -229,7 +231,7 @@ export class AuthArmorApiClient {
             authentication_redirect_url: redirectUrl,
             origin_location_data: originLocation,
             timeout_in_seconds: timeoutSeconds,
-            google_v3_recaptcha_token: recaptchaToken ?? "",
+            google_v3_recaptcha_token: reCaptchaToken ?? "",
             nonce
         });
     }
