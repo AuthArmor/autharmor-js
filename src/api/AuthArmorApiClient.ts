@@ -11,12 +11,11 @@ import {
     IAuthenticatorAuthenticationSession,
     IWebAuthnAuthenticationSession,
     IAuthenticatorRegistrationSession,
-    IApiError
-} from "./models";
-import {
+    IApiError,
+    IMagicLinkAuthenticationSession,
     IWebAuthnAuthenticationResult,
     IWebAuthnRegistrationResult
-} from "./models/IAuthenticationResult";
+} from "./models";
 import {
     ICompleteWebAuthnAuthenticationRequest,
     IGetAuthenticationSessionStatusRequest,
@@ -225,15 +224,19 @@ export class AuthArmorApiClient {
         timeoutSeconds,
         reCaptchaToken,
         nonce
-    }: IStartMagicLinkAuthenticationRequest): Promise<void> {
-        return await this.fetchAsync<void>("/api/v3/auth/request/magicLink/start", "post", {
-            username,
-            authentication_redirect_url: redirectUrl,
-            origin_location_data: originLocation,
-            timeout_in_seconds: timeoutSeconds,
-            google_v3_recaptcha_token: reCaptchaToken ?? "",
-            nonce
-        });
+    }: IStartMagicLinkAuthenticationRequest): Promise<IMagicLinkAuthenticationSession> {
+        return await this.fetchAsync<IMagicLinkAuthenticationSession>(
+            "/api/v3/auth/request/magicLink/start",
+            "post",
+            {
+                username,
+                authentication_redirect_url: redirectUrl,
+                origin_location_data: originLocation,
+                timeout_in_seconds: timeoutSeconds,
+                google_v3_recaptcha_token: reCaptchaToken ?? "",
+                nonce
+            }
+        );
     }
 
     /**

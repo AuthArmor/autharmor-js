@@ -6,10 +6,12 @@ import {
     AuthenticationRequestStatusId,
     IAuthenticationRequestStatus
 } from "./IAuthenticationRequestStatus";
-import { IAuthenticationResult } from "./IAuthenticationResult";
+import { IAuthenticationResult, IWebAuthnAuthenticationResult, IWebAuthnRegistrationResult } from "./IAuthenticationResult";
 import {
+    IAuthenticationSession,
     IAuthenticatorAuthenticationSession,
     IAuthenticatorQrCodeAuthenticationSession,
+    IMagicLinkAuthenticationSession,
     IWebAuthnAuthenticationSession
 } from "./IAuthenticationSession";
 import {
@@ -28,8 +30,12 @@ export {
     AuthenticationRequestStatusId,
     AuthenticationRequestCode,
     IAuthenticationResult,
+    IWebAuthnAuthenticationResult,
+    IWebAuthnRegistrationResult,
+    IAuthenticationSession,
     IAuthenticatorAuthenticationSession,
     IAuthenticatorQrCodeAuthenticationSession,
+    IMagicLinkAuthenticationSession,
     IWebAuthnAuthenticationSession,
     IRegistrationSession,
     IAuthenticatorRegistrationSession,
