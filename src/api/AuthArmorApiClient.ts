@@ -1,4 +1,5 @@
 import { AuthArmorApiRequestSigner } from "./AuthArmorApiRequestSigner";
+import { AuthArmorApiClientConfiguration } from "./config";
 import { ApiError } from "./errors/ApiError";
 import {
     IAuthArmorSdkConfiguration,
@@ -35,12 +36,26 @@ import {
  * A low-level client for the AuthArmor JS SDK API that exposes its endpoints.
  */
 export class AuthArmorApiClient {
-    private readonly apiBaseUrl = "https://auth.autharmor.dev";
+    private readonly clientSdkApiKey: string;
+    private readonly apiBaseUrl: string;
 
     public constructor(
-        private readonly clientSdkApiKey: string,
-        private readonly requestSigner = new AuthArmorApiRequestSigner(clientSdkApiKey)
-    ) {}
+        configuration: AuthArmorApiClientConfiguration,
+        private readonly requestSigner = new AuthArmorApiRequestSigner(
+            configuration.clientSdkApiKey
+        )
+    ) {
+        this.clientSdkApiKey = configuration.clientSdkApiKey;
+
+        if (configuration.baseUrl) {
+            this.apiBaseUrl = configuration.baseUrl;
+        } else {
+            this.apiBaseUrl =
+                configuration.environment === "production"
+                    ? "https://auth.autharmor.com"
+                    : "https://auth.autharmor.dev";
+        }
+    }
 
     /**
      * Retrieves the configuration for the SDK.
