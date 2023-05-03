@@ -19,6 +19,7 @@ import {
 } from "./models";
 import {
     ICompleteWebAuthnAuthenticationRequest,
+    ICompleteWebAuthnRegistrationRequest,
     IGetAuthenticationSessionStatusRequest,
     IGetAuthenticatorEnrollmentStatusRequest,
     IGetSdkConfigurationRequest,
@@ -183,20 +184,18 @@ export class AuthArmorApiClient {
      * `completeWebAuthnAuthentication` method with the result.
      */
     public async startWebAuthnAuthenticationAsync({
+        username,
         attachmentType,
-        originLocation,
-        timeoutSeconds,
-        reCaptchaToken,
+        webAuthnClientId,
         nonce
     }: IStartWebAuthnAuthenticationRequest): Promise<IWebAuthnAuthenticationSession> {
         return await this.fetchAsync<IWebAuthnAuthenticationSession>(
             "/api/v3/auth/request/webauthn/start",
             "post",
             {
+                username,
                 attachment_type: attachmentType,
-                origin_location_data: originLocation,
-                timeout_in_seconds: timeoutSeconds,
-                google_v3_recaptcha_token: reCaptchaToken ?? "",
+                webauthn_client_id: webAuthnClientId,
                 nonce
             }
         );
@@ -209,7 +208,7 @@ export class AuthArmorApiClient {
      */
     public async completeWebAuthnAuthenticationAsync({
         authenticatorResponseData,
-        registrationId,
+        authRequestId,
         authArmorSignature,
         webAuthnClientId
     }: ICompleteWebAuthnAuthenticationRequest): Promise<IWebAuthnAuthenticationResult> {
@@ -218,7 +217,7 @@ export class AuthArmorApiClient {
             "post",
             {
                 authenticator_response_data: authenticatorResponseData,
-                registration_id: registrationId,
+                auth_request_id: authRequestId,
                 autharmor_signature: authArmorSignature,
                 webauthn_client_id: webAuthnClientId
             }
@@ -318,7 +317,7 @@ export class AuthArmorApiClient {
         registrationId,
         authArmorSignature,
         webAuthnClientId
-    }: ICompleteWebAuthnAuthenticationRequest): Promise<IWebAuthnRegistrationResult> {
+    }: ICompleteWebAuthnRegistrationRequest): Promise<IWebAuthnRegistrationResult> {
         return await this.fetchAsync<IWebAuthnRegistrationResult>(
             "/api/v3/users/register/webauthn/finish",
             "post",

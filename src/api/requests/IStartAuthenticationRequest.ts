@@ -17,8 +17,11 @@ export interface IStartAuthenticatorNotificationAuthenticationRequest
 export interface IStartAuthenticatorQrCodeAuthenticationRequest
     extends IStartAuthenticatorAuthenticationRequest {}
 
-export interface IStartWebAuthnAuthenticationRequest extends IStartAuthenticationRequest {
+export interface IStartWebAuthnAuthenticationRequest {
+    username: string;
     attachmentType: WebAuthnAttachmentType;
+    webAuthnClientId: string;
+    nonce: string;
 }
 
 export interface IStartMagicLinkAuthenticationRequest extends IStartAuthenticationRequest {
