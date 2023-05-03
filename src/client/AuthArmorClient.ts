@@ -19,6 +19,8 @@ import {
     RegistrationResult
 } from "./models";
 import { AuthArmorClientConfiguration } from "./config";
+import { WebAuthnService } from "../webAuthn/WebAuthnService";
+import { IWebAuthnLogIn, IWebAuthnRegistration } from "../webAuthn/models";
 
 /**
  * The client for programatically interacting with AuthArmor's client-side SDK.
@@ -43,6 +45,10 @@ export class AuthArmorClient {
     public constructor(
         configuration: AuthArmorClientConfiguration,
         private readonly apiClient = new AuthArmorApiClient(configuration),
+        private readonly webAuthnClientId: string | null = configuration.webAuthnClientId ?? null,
+        private readonly webAuthnService = configuration.webAuthnClientId !== undefined
+            ? new WebAuthnService(configuration.webAuthnClientId)
+            : null!,
         private readonly nonceGenerator: INonceGenerator = new BrowserNonceGenerator(),
         private readonly systemClock: ISystemClock = new NativeSystemClock()
     ) {}
@@ -188,6 +194,59 @@ export class AuthArmorClient {
     }
 
     /**
+     * Logs in a user using WebAuthn.
+     *
+     * @param username The username of the user.
+     *
+     * @returns A promise that resolves with the authentication result.
+     */
+    public async logInWithWebAuthnAsync(username: string): Promise<AuthenticationResult> {
+        if (this.webAuthnClientId === null) {
+            throw new Error("This AuthArmorClient was not instantiated with WebAuthn support");
+        }
+
+        await this.ensureInitialized();
+
+        const nonce = this.nonceGenerator.generateNonce();
+
+        const authSession = await this.apiClient.startWebAuthnAuthenticationAsync({
+            username,
+            webAuthnClientId: this.webAuthnClientId,
+            attachmentType: "Any",
+            nonce
+        });
+
+        let logIn: IWebAuthnLogIn;
+
+        try {
+            logIn = await this.webAuthnService.logInAsync(authSession);
+        } catch {
+            const result: IAuthenticationFailureResult = {
+                requestId: authSession.auth_request_id,
+                succeeded: false,
+                failureReason: "unknown"
+            };
+
+            return result;
+        }
+
+        const webAuthnResult = await this.apiClient.completeWebAuthnAuthenticationAsync({
+            authenticatorResponseData: logIn.authenticator_response_data,
+            authRequestId: logIn.auth_request_id,
+            authArmorSignature: logIn.aa_sig,
+            webAuthnClientId: this.webAuthnClientId
+        });
+
+        const result: IAuthenticationSuccessResult = {
+            succeeded: true,
+            requestId: webAuthnResult.auth_request_id,
+            validationToken: webAuthnResult.auth_validation_token
+        };
+
+        return result;
+    }
+
+    /**
      * Registers a user using an authenticator QR code.
      *
      * @param username The username of the user.
@@ -243,6 +302,59 @@ export class AuthArmorClient {
             timeoutSeconds: 60,
             nonce
         });
+    }
+
+    /**
+     * Registers a user using WebAuthn.
+     *
+     * @param username The username of the user.
+     *
+     * @returns A promise that resolves with the registration result.
+     */
+    public async registerWithWebAuthnAsync(username: string): Promise<RegistrationResult> {
+        if (this.webAuthnClientId === null) {
+            throw new Error("This AuthArmorClient was not instantiated with WebAuthn support");
+        }
+
+        await this.ensureInitialized();
+
+        const nonce = this.nonceGenerator.generateNonce();
+
+        const registrationSession = await this.apiClient.startWebAuthnRegistrationAsync({
+            username,
+            attachmentType: "Any",
+            webAuthnClientId: this.webAuthnClientId,
+            timeoutSeconds: 60,
+            nonce
+        });
+
+        let registration: IWebAuthnRegistration;
+
+        try {
+            registration = await this.webAuthnService.registerAsync(registrationSession);
+        } catch {
+            const result: IRegistrationFailureResult = {
+                succeeded: false,
+                failureReason: "unknown"
+            };
+
+            return result;
+        }
+
+        const webAuthnResult = await this.apiClient.completeWebAuthnRegistrationAsync({
+            authenticatorResponseData: registration.authenticator_response_data,
+            registrationId: registration.registration_id,
+            authArmorSignature: registration.aa_sig,
+            webAuthnClientId: this.webAuthnClientId
+        });
+
+        const result: IRegistrationSuccessResult = {
+            succeeded: true,
+            userId: webAuthnResult.user_id,
+            username: webAuthnResult.username ?? username
+        };
+
+        return result;
     }
 
     /**

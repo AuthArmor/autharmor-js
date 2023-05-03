@@ -1,5 +1,6 @@
 export type AuthArmorClientConfiguration = IAuthArmorClientSdkApiKeyConfiguration &
-    IAuthArmorClientEnvironmentConfiguration;
+    IAuthArmorClientEnvironmentConfiguration &
+    IAuthArmorWebAuthnConfiguration;
 
 interface IAuthArmorClientSdkApiKeyConfiguration {
     clientSdkApiKey: string;
@@ -10,3 +11,7 @@ interface IAuthArmorClientEnvironmentConfiguration {
 }
 
 type AuthArmorEnvironment = "production" | "development";
+
+interface IAuthArmorWebAuthnConfiguration {
+    webAuthnClientId?: string;
+}
