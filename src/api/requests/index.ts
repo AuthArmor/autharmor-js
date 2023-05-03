@@ -1,6 +1,8 @@
 import {
     ICompleteAuthenticationRequest,
-    ICompleteWebAuthnAuthenticationRequest
+    ICompleteWebAuthnAuthenticationRequest,
+    ICompleteWebAuthnRegistrationRequest,
+    ICompleteWebAuthnRequest
 } from "./ICompleteAuthenticationRequest";
 import { IGetAuthenticationSessionStatusRequest } from "./IGetAuthenticationSessionStatusRequest";
 import { IGetAuthenticatorEnrollmentStatusRequest } from "./IGetAuthenticatorEnrollmentStatusRequest";
@@ -21,7 +23,9 @@ import {
 
 export {
     ICompleteAuthenticationRequest,
+    ICompleteWebAuthnRequest,
     ICompleteWebAuthnAuthenticationRequest,
+    ICompleteWebAuthnRegistrationRequest,
     IGetAuthenticationSessionStatusRequest,
     IGetAuthenticatorEnrollmentStatusRequest,
     IGetSdkConfigurationRequest,

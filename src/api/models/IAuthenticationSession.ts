@@ -26,7 +26,7 @@ export interface IMagicLinkAuthenticationSession extends IAuthenticationSession 
     user_id: string;
 }
 
-export interface IWebAuthnAuthenticationSession {
+export interface IWebAuthnAuthenticationSession extends IAuthenticationSession {
     aa_guid: string;
     fido2_json_options: string;
 }
