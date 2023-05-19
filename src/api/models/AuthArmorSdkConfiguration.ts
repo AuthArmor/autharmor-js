@@ -1,14 +1,13 @@
-export interface IAuthArmorSdkConfiguration {
-    recaptcha: AuthArmorSdkRecaptchaConfiguration;
-}
+export type AuthArmorSdkConfiguration = AuthArmorSdkRecaptchaConfiguration;
 
 interface IAuthArmorSdkRecaptchaConfigurationWhenEnabled {
-    enabled: true;
-    siteId: string;
+    google_v3_recaptcha_enabled: true;
+    // This is misspelled as recpatcha on origin.
+    google_v3_recpatcha_site_id: string;
 }
 
 interface IAuthArmorSdkRecaptchaConfigurationWhenDisabled {
-    enabled: false;
+    google_v3_recaptcha_enabled: false;
 }
 
 type AuthArmorSdkRecaptchaConfiguration =

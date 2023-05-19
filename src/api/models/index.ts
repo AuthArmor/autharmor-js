@@ -1,12 +1,16 @@
 import { IApiError } from "./IApiError";
 import { IAuthArmorAuthenticatorEnrollmentStatus } from "./IAuthArmorAuthenticatorEnrollmentStatus";
-import { IAuthArmorSdkConfiguration } from "./IAuthArmorSdkConfiguration";
+import { AuthArmorSdkConfiguration } from "./AuthArmorSdkConfiguration";
 import {
     AuthenticationRequestCode,
     AuthenticationRequestStatusId,
     IAuthenticationRequestStatus
 } from "./IAuthenticationRequestStatus";
-import { IAuthenticationResult, IWebAuthnAuthenticationResult, IWebAuthnRegistrationResult } from "./IAuthenticationResult";
+import {
+    IAuthenticationResult,
+    IWebAuthnAuthenticationResult,
+    IWebAuthnRegistrationResult
+} from "./IAuthenticationResult";
 import {
     IAuthenticationSession,
     IAuthenticatorAuthenticationSession,
@@ -22,13 +26,11 @@ import {
 } from "./IRegistrationSession";
 import { AuthMethod, IEnrolledAuthMethod, IUserEnrollments } from "./IUserEnrollments";
 
-export {
+export type {
     IApiError,
     IAuthArmorAuthenticatorEnrollmentStatus,
-    IAuthArmorSdkConfiguration,
+    AuthArmorSdkConfiguration,
     IAuthenticationRequestStatus,
-    AuthenticationRequestStatusId,
-    AuthenticationRequestCode,
     IAuthenticationResult,
     IWebAuthnAuthenticationResult,
     IWebAuthnRegistrationResult,
@@ -42,6 +44,7 @@ export {
     IMagicLinkRegistrationSession,
     IWebAuthnRegistrationSession,
     IUserEnrollments,
-    IEnrolledAuthMethod,
-    AuthMethod
+    IEnrolledAuthMethod
 };
+
+export { AuthenticationRequestStatusId, AuthenticationRequestCode, AuthMethod };
