@@ -6,6 +6,8 @@ import { NativeSystemClock } from "../infrastructure/NativeSystemClock";
 import { BrowserSha256StringHasher } from "../infrastructure/BrowserSha256StringHasher";
 import { INonceGenerator } from "../infrastructure/INonceGenerator";
 import { BrowserNonceGenerator } from "../infrastructure/BrowserNonceGenerator";
+import { IHostNameService } from "../infrastructure/IHostNameService";
+import { BrowserHostNameService } from "../infrastructure/BrowserHostNameService";
 
 /**
  * Implements the request signing logic for the AuthArmor API.
@@ -28,7 +30,8 @@ export class AuthArmorApiRequestSigner {
         private readonly systemClock: ISystemClock = new NativeSystemClock(),
         private readonly nonceGenerator: INonceGenerator = new BrowserNonceGenerator(),
         private readonly base64Coder: IBase64Coder = new BrowserBase64Coder(),
-        private readonly sha256StringHasher: ISha256StringHasher = new BrowserSha256StringHasher()
+        private readonly sha256StringHasher: ISha256StringHasher = new BrowserSha256StringHasher(),
+        private readonly hostNameService: IHostNameService = new BrowserHostNameService()
     ) {
         this.signingKey = this.getSigningKeyFromApiKey(clientSdkApiKey);
     }
@@ -51,7 +54,7 @@ export class AuthArmorApiRequestSigner {
             ? urlObject.pathname.slice(0, -1)
             : urlObject.pathname;
 
-        const host = urlObject.host;
+        const host = this.hostNameService.getHostName();
 
         const signaturePayload = [this.signingKey, timestamp, path, host].join("|");
 
