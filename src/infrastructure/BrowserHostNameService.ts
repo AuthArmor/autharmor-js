@@ -1,4 +1,4 @@
-import { IHostNameService } from "./IHostnameService";
+import { IHostNameService } from "./IHostNameService";
 
 /**
  * A hostname service that uses the browser's current hostname.
