@@ -21,7 +21,7 @@ import {
     IStartMagicLinkRegistrationRequest
 } from "./IStartAuthenticationRequest";
 
-export {
+export type {
     ICompleteAuthenticationRequest,
     ICompleteWebAuthnRequest,
     ICompleteWebAuthnAuthenticationRequest,

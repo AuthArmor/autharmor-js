@@ -1,3 +1,3 @@
 import { AuthArmorApiClientConfiguration } from "./AuthArmorApiClientConfiguration";
 
-export { AuthArmorApiClientConfiguration };
+export type { AuthArmorApiClientConfiguration };
