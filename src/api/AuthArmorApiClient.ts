@@ -1,8 +1,8 @@
 import { AuthArmorApiRequestSigner } from "./AuthArmorApiRequestSigner";
 import { AuthArmorApiClientConfiguration } from "./config";
-import { ApiError } from "./errors/ApiError";
+import { ApiError } from "./errors";
 import {
-    IAuthArmorSdkConfiguration,
+    AuthArmorSdkConfiguration,
     IUserEnrollments,
     IAuthArmorAuthenticatorEnrollmentStatus,
     IAuthenticationRequestStatus,
@@ -61,8 +61,8 @@ export class AuthArmorApiClient {
     /**
      * Retrieves the configuration for the SDK.
      */
-    public async getSdkConfigurationAsync({}: IGetSdkConfigurationRequest = {}): Promise<IAuthArmorSdkConfiguration> {
-        return await this.fetchAsync<IAuthArmorSdkConfiguration>("/api/v3/config/sdkinit");
+    public async getSdkConfigurationAsync({}: IGetSdkConfigurationRequest = {}): Promise<AuthArmorSdkConfiguration> {
+        return await this.fetchAsync<AuthArmorSdkConfiguration>("/api/v3/config/sdkinit");
     }
 
     /**
@@ -139,6 +139,8 @@ export class AuthArmorApiClient {
                 send_push: true,
                 use_visual_verify: useVisualVerify,
                 origin_location_data: originLocation,
+                action_name: "Login",
+                short_msg: "Login",
                 timeout_in_seconds: timeoutSeconds,
                 google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
@@ -167,6 +169,8 @@ export class AuthArmorApiClient {
                 send_push: false,
                 use_visual_verify: useVisualVerify,
                 origin_location_data: originLocation,
+                action_name: "Login",
+                short_msg: "Login",
                 timeout_in_seconds: timeoutSeconds,
                 google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
@@ -246,6 +250,8 @@ export class AuthArmorApiClient {
                 username,
                 authentication_redirect_url: redirectUrl,
                 origin_location_data: originLocation,
+                action_name: "Login",
+                short_msg: "Login",
                 timeout_in_seconds: timeoutSeconds,
                 google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
@@ -270,6 +276,8 @@ export class AuthArmorApiClient {
             {
                 username,
                 origin_location_data: originLocation,
+                action_name: "Register",
+                short_msg: "Register",
                 timeout_in_seconds: timeoutSeconds,
                 nonce
             }
@@ -301,6 +309,8 @@ export class AuthArmorApiClient {
                 attachment_type: attachmentType,
                 webauthn_client_id: webAuthnClientId,
                 origin_location_data: originLocation,
+                action_name: "Register",
+                short_msg: "Register",
                 timeout_in_seconds: timeoutSeconds,
                 nonce
             }
@@ -378,15 +388,21 @@ export class AuthArmorApiClient {
 
         const finalUrl = url.toString();
 
-        const encodedPayload = JSON.stringify(payload ?? {});
+        const encodedPayload = payload !== undefined ? JSON.stringify(payload ?? {}) : null;
 
-        const signature = await this.requestSigner.signRequest(finalUrl, encodedPayload);
+        const signature = await this.requestSigner.signRequest(finalUrl, encodedPayload ?? "");
+
+        const headers: HeadersInit = {
+            "X-AuthArmor-ClientMsgSigv1": signature
+        };
+
+        if (encodedPayload !== null) {
+            headers["Content-Type"] = "application/json";
+        }
 
         const options: RequestInit = {
             method,
-            headers: {
-                "X-AuthArmor-ClientMsgSigv1": signature
-            },
+            headers,
             body: encodedPayload
         };
 
