@@ -1,7 +1,20 @@
 {
     "name": "autharmor-sdk",
     "version": "4.0.0",
-    "main": "dist/index.js",
+    "type": "module",
+    "main": "dist/index.cjs",
+    "module": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        "solid": {
+            "import": "./dist/index.jsx"
+        },
+        "import": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        },
+        "require": "./dist/index.cjs"
+    },
     "license": "MIT",
     "homepage": "https://github.com/AuthArmor/autharmor-jsclient-sdk#readme",
     "repository": {
@@ -21,12 +34,14 @@
     },
     "dependencies": {
         "@solid-primitives/i18n": "^1.2.4",
+        "qrcode": "^1.5.3",
         "solid-js": "^1.7.2"
     },
     "browserslist": [
         "last 2 Chrome versions"
     ],
     "devDependencies": {
+        "@types/qrcode": "^1.5.0",
         "esbuild": "^0.17.15",
         "postcss": "^8.4.23",
         "prettier": "^2.8.7",
