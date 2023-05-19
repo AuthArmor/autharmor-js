@@ -69,8 +69,8 @@ export class AuthArmorClient {
 
         const remoteSdkConfig = await this.apiClient.getSdkConfigurationAsync();
 
-        if (remoteSdkConfig.recaptcha.enabled) {
-            const reCaptchaService = new GoogleReCaptchaService(remoteSdkConfig.recaptcha.siteId);
+        if (remoteSdkConfig.google_v3_recaptcha_enabled) {
+            const reCaptchaService = new GoogleReCaptchaService(remoteSdkConfig.google_v3_recpatcha_site_id);
             await reCaptchaService.initializeAsync();
 
             this.reCaptchaService = reCaptchaService;
@@ -123,7 +123,7 @@ export class AuthArmorClient {
 
         const authSession = await this.apiClient.startAuthenticatorNotificationAuthenticationAsync({
             username,
-            useVisualVerify: true,
+            useVisualVerify: false,
             timeoutSeconds: 60,
             reCaptchaToken,
             nonce
@@ -149,7 +149,7 @@ export class AuthArmorClient {
         const nonce = this.nonceGenerator.generateNonce();
 
         const authSession = await this.apiClient.startAuthenticatorQrCodeAuthenticationAsync({
-            useVisualVerify: true,
+            useVisualVerify: false,
             timeoutSeconds: 60,
             reCaptchaToken,
             nonce

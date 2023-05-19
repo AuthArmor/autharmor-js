@@ -13,7 +13,7 @@ import {
 } from "./RegistrationResult";
 import { QrCodeResult } from "./QrCodeResult";
 
-export {
+export type {
     IAvailableAuthenticationMethods,
     AuthenticationResult,
     IAuthenticationSuccessResult,
