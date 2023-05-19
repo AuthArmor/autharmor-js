@@ -4,4 +4,4 @@ import {
     IWebAuthnRegistration
 } from "./IWebAuthnAuthentication";
 
-export { IWebAuthnAuthentication, IWebAuthnLogIn, IWebAuthnRegistration };
+export type { IWebAuthnAuthentication, IWebAuthnLogIn, IWebAuthnRegistration };
