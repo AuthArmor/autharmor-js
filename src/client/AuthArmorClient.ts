@@ -170,7 +170,7 @@ export class AuthArmorClient {
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 60
         }: Partial<IAuthenticatorQrCodeLogInOptions> = {},
-        abortSignal: AbortSignal
+        abortSignal?: AbortSignal
     ): Promise<QrCodeResult<AuthenticationResult>> {
         await this.ensureInitialized();
 
