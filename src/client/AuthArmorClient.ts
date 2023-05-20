@@ -130,7 +130,8 @@ export class AuthArmorClient {
             actionName = "Log in",
             shortMessage = "Login pending, please authorize",
             timeoutSeconds = 60
-        }: Partial<IAuthenticatorNotificationLogInOptions> = {}
+        }: Partial<IAuthenticatorNotificationLogInOptions> = {},
+        abortSignal?: AbortSignal
     ): Promise<AuthenticationResult> {
         await this.ensureInitialized();
 
@@ -149,7 +150,9 @@ export class AuthArmorClient {
 
         const result = await this.pollForAuthenticationResultAsync(
             authSession.auth_request_id,
-            authSession.auth_validation_token
+            authSession.auth_validation_token,
+            timeoutSeconds,
+            abortSignal
         );
 
         return result;
@@ -160,12 +163,15 @@ export class AuthArmorClient {
      *
      * @returns A promise that resolves with a QR code result for the authentication result.
      */
-    public async logInWithAuthenticatorQrCodeAsync({
-        useVisualVerify = false,
-        actionName = "Log in",
-        shortMessage = "Log in pending, please authorize",
-        timeoutSeconds = 60
-    }: Partial<IAuthenticatorQrCodeLogInOptions> = {}): Promise<QrCodeResult<AuthenticationResult>> {
+    public async logInWithAuthenticatorQrCodeAsync(
+        {
+            useVisualVerify = false,
+            actionName = "Log in",
+            shortMessage = "Log in pending, please authorize",
+            timeoutSeconds = 60
+        }: Partial<IAuthenticatorQrCodeLogInOptions> = {},
+        abortSignal: AbortSignal
+    ): Promise<QrCodeResult<AuthenticationResult>> {
         await this.ensureInitialized();
 
         const reCaptchaToken = await this.reCaptchaService.executeAsync("auth");
@@ -185,7 +191,9 @@ export class AuthArmorClient {
             resultAsync: async () =>
                 await this.pollForAuthenticationResultAsync(
                     authSession.auth_request_id,
-                    authSession.auth_validation_token
+                    authSession.auth_validation_token,
+                    timeoutSeconds,
+                    abortSignal
                 )
         };
 
@@ -294,7 +302,8 @@ export class AuthArmorClient {
             actionName = "Log in",
             shortMessage = "Registration pending, please authorize",
             timeoutSeconds = 120
-        }: Partial<IAuthenticatorRegisterOptions> = {}
+        }: Partial<IAuthenticatorRegisterOptions> = {},
+        abortSignal?: AbortSignal
     ): Promise<QrCodeResult<RegistrationResult>> {
         await this.ensureInitialized();
 
@@ -311,7 +320,11 @@ export class AuthArmorClient {
         const result: QrCodeResult<RegistrationResult> = {
             qrCodeUrl: registrationSession.qr_code_data,
             resultAsync: async () =>
-                await this.pollForAuthenticatorRegistrationResultAsync(registrationSession.user_id)
+                await this.pollForAuthenticatorRegistrationResultAsync(
+                    registrationSession.user_id,
+                    timeoutSeconds,
+                    abortSignal
+                )
         };
 
         return result;
@@ -420,19 +433,20 @@ export class AuthArmorClient {
     protected pollForAuthenticationResultAsync(
         sessionId: string,
         validationToken: string,
-        timeoutSeconds: number = 60
+        timeoutSeconds: number = 60,
+        abortSignal?: AbortSignal
     ): Promise<AuthenticationResult> {
         return new Promise((resolve) => {
             const timesOutAfter = this.systemClock.now().getTime() + timeoutSeconds * 1000;
 
             const interval = setInterval(async () => {
-                if (this.systemClock.now().getTime() > timesOutAfter) {
+                if (abortSignal?.aborted || this.systemClock.now().getTime() > timesOutAfter) {
                     clearInterval(interval);
 
                     const result: IAuthenticationFailureResult = {
                         requestId: sessionId,
                         succeeded: false,
-                        failureReason: "timedOut"
+                        failureReason: abortSignal?.aborted ? "aborted" : "timedOut"
                     };
 
                     resolve(result);
@@ -488,18 +502,19 @@ export class AuthArmorClient {
      */
     protected pollForAuthenticatorRegistrationResultAsync(
         userId: string,
-        timeoutSeconds: number = 60
+        timeoutSeconds: number = 60,
+        abortSignal?: AbortSignal
     ): Promise<RegistrationResult> {
         return new Promise((resolve) => {
             const timesOutAfter = this.systemClock.now().getTime() + timeoutSeconds * 1000;
 
             const interval = setInterval(async () => {
-                if (this.systemClock.now().getTime() > timesOutAfter) {
+                if (abortSignal?.aborted || this.systemClock.now().getTime() > timesOutAfter) {
                     clearInterval(interval);
 
                     const result: IRegistrationFailureResult = {
                         succeeded: false,
-                        failureReason: "timedOut"
+                        failureReason: abortSignal?.aborted ? "aborted" : "timedOut"
                     };
 
                     resolve(result);
