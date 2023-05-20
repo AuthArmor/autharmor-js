@@ -21,6 +21,14 @@ import {
 import { AuthArmorClientConfiguration } from "./config";
 import { WebAuthnService } from "../webAuthn/WebAuthnService";
 import { IWebAuthnLogIn, IWebAuthnRegistration } from "../webAuthn/models";
+import {
+    IAuthenticatorNotificationLogInOptions,
+    IAuthenticatorQrCodeLogInOptions,
+    IAuthenticatorRegisterOptions,
+    IEmailMagicLinkLogInOptions,
+    IEmailMagicLinkRegisterOptions,
+    IWebAuthnRegisterOptions
+} from "./options";
 
 /**
  * The client for programatically interacting with AuthArmor's client-side SDK.
@@ -70,7 +78,9 @@ export class AuthArmorClient {
         const remoteSdkConfig = await this.apiClient.getSdkConfigurationAsync();
 
         if (remoteSdkConfig.google_v3_recaptcha_enabled) {
-            const reCaptchaService = new GoogleReCaptchaService(remoteSdkConfig.google_v3_recpatcha_site_id);
+            const reCaptchaService = new GoogleReCaptchaService(
+                remoteSdkConfig.google_v3_recpatcha_site_id
+            );
             await reCaptchaService.initializeAsync();
 
             this.reCaptchaService = reCaptchaService;
@@ -114,7 +124,13 @@ export class AuthArmorClient {
      * @returns A promise that resolves with the authentication result.
      */
     public async logInWithAuthenticatorNotificationAsync(
-        username: string
+        username: string,
+        {
+            useVisualVerify = false,
+            actionName = "Log in",
+            shortMessage = "Login pending, please authorize",
+            timeoutSeconds = 60
+        }: Partial<IAuthenticatorNotificationLogInOptions>
     ): Promise<AuthenticationResult> {
         await this.ensureInitialized();
 
@@ -123,8 +139,10 @@ export class AuthArmorClient {
 
         const authSession = await this.apiClient.startAuthenticatorNotificationAuthenticationAsync({
             username,
-            useVisualVerify: false,
-            timeoutSeconds: 60,
+            useVisualVerify,
+            actionName,
+            shortMessage,
+            timeoutSeconds,
             reCaptchaToken,
             nonce
         });
@@ -142,15 +160,22 @@ export class AuthArmorClient {
      *
      * @returns A promise that resolves with a QR code result for the authentication result.
      */
-    public async logInWithAuthenticatorQrCodeAsync(): Promise<QrCodeResult<AuthenticationResult>> {
+    public async logInWithAuthenticatorQrCodeAsync({
+        useVisualVerify = false,
+        actionName = "Log in",
+        shortMessage = "Log in pending, please authorize",
+        timeoutSeconds = 60
+    }: Partial<IAuthenticatorQrCodeLogInOptions>): Promise<QrCodeResult<AuthenticationResult>> {
         await this.ensureInitialized();
 
         const reCaptchaToken = await this.reCaptchaService.executeAsync("auth");
         const nonce = this.nonceGenerator.generateNonce();
 
         const authSession = await this.apiClient.startAuthenticatorQrCodeAuthenticationAsync({
-            useVisualVerify: false,
-            timeoutSeconds: 60,
+            useVisualVerify,
+            actionName,
+            shortMessage,
+            timeoutSeconds,
             reCaptchaToken,
             nonce
         });
@@ -180,7 +205,15 @@ export class AuthArmorClient {
      * contain a query string parameter named `auth_validation_token` that can be used to validate
      * the login.
      */
-    public async sendLoginMagicLinkAsync(emailAddress: string, redirectUrl: string): Promise<void> {
+    public async sendLoginMagicLinkAsync(
+        emailAddress: string,
+        redirectUrl: string,
+        {
+            actionName = "Log in",
+            shortMessage = "Log in pending, please authorize",
+            timeoutSeconds = 300
+        }: Partial<IEmailMagicLinkLogInOptions>
+    ): Promise<void> {
         await this.ensureInitialized();
 
         const nonce = this.nonceGenerator.generateNonce();
@@ -188,7 +221,9 @@ export class AuthArmorClient {
         await this.apiClient.sendMagicLinkForAuthenticationAsync({
             username: emailAddress,
             redirectUrl,
-            timeoutSeconds: 60,
+            actionName,
+            shortMessage,
+            timeoutSeconds,
             nonce
         });
     }
@@ -254,7 +289,12 @@ export class AuthArmorClient {
      * @returns A promise that resolves with a QR code result for the registration result.
      */
     public async registerWithAuthenticatorQrCodeAsync(
-        username: string
+        username: string,
+        {
+            actionName = "Log in",
+            shortMessage = "Registration pending, please authorize",
+            timeoutSeconds = 120
+        }: Partial<IAuthenticatorRegisterOptions>
     ): Promise<QrCodeResult<RegistrationResult>> {
         await this.ensureInitialized();
 
@@ -262,7 +302,9 @@ export class AuthArmorClient {
 
         const registrationSession = await this.apiClient.startAuthenticatorRegistrationAsync({
             username,
-            timeoutSeconds: 60,
+            actionName,
+            shortMessage,
+            timeoutSeconds,
             nonce
         });
 
@@ -290,7 +332,12 @@ export class AuthArmorClient {
      */
     public async sendRegisterMagicLinkAsync(
         emailAddress: string,
-        redirectUrl: string
+        redirectUrl: string,
+        {
+            actionName = "Register",
+            shortMessage = "Registration pending, please authorize",
+            timeoutSeconds = 300
+        }: Partial<IEmailMagicLinkRegisterOptions>
     ): Promise<void> {
         await this.ensureInitialized();
 
@@ -299,7 +346,9 @@ export class AuthArmorClient {
         await this.apiClient.sendMagicLinkForRegistrationAsync({
             username: emailAddress,
             redirectUrl,
-            timeoutSeconds: 60,
+            actionName,
+            shortMessage,
+            timeoutSeconds,
             nonce
         });
     }
@@ -311,7 +360,10 @@ export class AuthArmorClient {
      *
      * @returns A promise that resolves with the registration result.
      */
-    public async registerWithWebAuthnAsync(username: string): Promise<RegistrationResult> {
+    public async registerWithWebAuthnAsync(
+        username: string,
+        { attachmentType = "Any" }: Partial<IWebAuthnRegisterOptions>
+    ): Promise<RegistrationResult> {
         if (this.webAuthnClientId === null) {
             throw new Error("This AuthArmorClient was not instantiated with WebAuthn support");
         }
@@ -322,9 +374,8 @@ export class AuthArmorClient {
 
         const registrationSession = await this.apiClient.startWebAuthnRegistrationAsync({
             username,
-            attachmentType: "Any",
+            attachmentType,
             webAuthnClientId: this.webAuthnClientId,
-            timeoutSeconds: 60,
             nonce
         });
 
