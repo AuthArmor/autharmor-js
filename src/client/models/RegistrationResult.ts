@@ -11,4 +11,4 @@ export interface IRegistrationFailureResult {
     failureReason: RegistrationFailureReason;
 }
 
-export type RegistrationFailureReason = "timedOut" | "unknown";
+export type RegistrationFailureReason = "timedOut" | "aborted" | "unknown";
