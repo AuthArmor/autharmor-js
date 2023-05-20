@@ -95,7 +95,8 @@ export class AuthArmorApiClient {
         userId
     }: IGetAuthenticatorEnrollmentStatusRequest): Promise<IAuthArmorAuthenticatorEnrollmentStatus> {
         return await this.fetchAsync<IAuthArmorAuthenticatorEnrollmentStatus>(
-            `/api/v3/users/${userId}/autharmorauthenticatorenrollmentstatus`
+            `/api/v3/users/${userId}/autharmorauthenticatorenrollmentstatus`,
+            "post"
         );
     }
 
