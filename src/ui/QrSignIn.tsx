@@ -10,9 +10,9 @@ export interface IQrSignInProps {
 }
 
 export default function QrSignIn(props: IQrSignInProps) {
-    let isUnmounted = false;
-
     const client = useClient();
+
+    const abortController = new AbortController();
 
     const [signInUrl, setSignInUrl] = createSignal<string | null>(null);
     // const [remainingTimeSeconds, setRemainingTimeSeconds] = createSignal<number | null>(null);
@@ -36,9 +36,9 @@ export default function QrSignIn(props: IQrSignInProps) {
         setError(null);
 
         let qrResult: QrCodeResult<AuthenticationResult>;
-        
+
         try {
-            qrResult = await client.logInWithAuthenticatorQrCodeAsync();
+            qrResult = await client.logInWithAuthenticatorQrCodeAsync({}, abortController.signal);
         } catch (error: unknown) {
             if (!(error instanceof ApiError)) {
                 throw error;
@@ -59,7 +59,7 @@ export default function QrSignIn(props: IQrSignInProps) {
         // }, 1000);
 
         let authenticationResult: AuthenticationResult;
-        
+
         try {
             authenticationResult = await qrResult.resultAsync();
         } catch (error: unknown) {
@@ -73,7 +73,7 @@ export default function QrSignIn(props: IQrSignInProps) {
             return;
         }
 
-        if (isUnmounted) {
+        if (abortController.signal.aborted) {
             return;
         }
 
@@ -115,7 +115,7 @@ export default function QrSignIn(props: IQrSignInProps) {
     onCleanup(() => {
         // ensureIntervalIsCleared();
 
-        isUnmounted = true;
+        abortController.abort();
     });
 
     // const remainingTimeSecondsComponent = () => (remainingTimeSeconds() ?? 0) % 60;
