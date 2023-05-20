@@ -22,6 +22,8 @@ export interface ILogInFormProps {
 export function LogInForm(props: ILogInFormProps) {
     const client = useClient();
 
+    let currentRequestAbortController: AbortController | null = null;
+
     const [activeMethod, setActiveMethod] = createSignal<
         keyof IAvailableAuthenticationMethods | null
     >(null);
@@ -100,6 +102,11 @@ export function LogInForm(props: ILogInFormProps) {
     const handleLogIn = async (event: Event) => {
         event.preventDefault();
 
+        currentRequestAbortController?.abort();
+        currentRequestAbortController = new AbortController();
+
+        const abortSignal = currentRequestAbortController.signal;
+
         setActiveMethod(null);
         setStatus("waiting");
         setError(null);
@@ -118,6 +125,10 @@ export function LogInForm(props: ILogInFormProps) {
         try {
             availableMethods = await client.getAvailableLogInMethodsAsync(username).catch();
         } catch (error: unknown) {
+            if (abortSignal.aborted) {
+                return;
+            }
+
             if (!(error instanceof ApiError)) {
                 throw error;
             }
@@ -131,13 +142,29 @@ export function LogInForm(props: ILogInFormProps) {
             return;
         }
 
+        if (abortSignal.aborted) {
+            return;
+        }
+
         const selectedMethod = await selectAuthenticationMethod(availableMethods);
+
+        if (abortSignal.aborted) {
+            return;
+        }
 
         setActiveMethod(selectedMethod);
 
         switch (selectedMethod) {
             case "authenticator": {
-                const result = await client.logInWithAuthenticatorNotificationAsync(username);
+                const result = await client.logInWithAuthenticatorNotificationAsync(
+                    username,
+                    {},
+                    abortSignal
+                );
+
+                if (abortSignal.aborted) {
+                    return;
+                }
 
                 setStatus(result.succeeded ? "success" : "error");
 
@@ -146,12 +173,15 @@ export function LogInForm(props: ILogInFormProps) {
                         {
                             timedOut: "Request timed out",
                             declined: "Request declined",
+                            aborted: "Request aborted",
                             unknown: "Unknown failure"
                         };
 
                     const failureReason = humanFailureReasons[result.failureReason];
 
                     setDialogError(failureReason);
+
+                    currentRequestAbortController = null;
 
                     return;
                 }
@@ -162,10 +192,17 @@ export function LogInForm(props: ILogInFormProps) {
             case "webAuthn": {
                 const result = await client.logInWithWebAuthnAsync(username);
 
+                if (abortSignal.aborted) {
+                    return;
+                }
+
                 setStatus(result.succeeded ? "success" : "error");
 
                 if (!result.succeeded) {
                     setDialogError("Authentication failed.");
+
+                    currentRequestAbortController = null;
+
                     return;
                 }
 
@@ -179,12 +216,18 @@ export function LogInForm(props: ILogInFormProps) {
                     setStatus("error");
                     setDialogError("Magic link redirect URL not set");
 
+                    currentRequestAbortController = null;
+
                     return;
                 }
 
                 try {
                     await client.sendLoginMagicLinkAsync(username, magicLinkRedirectUrl);
                 } catch (error: unknown) {
+                    if (abortSignal.aborted) {
+                        return;
+                    }
+
                     if (!(error instanceof ApiError)) {
                         throw error;
                     }
@@ -192,6 +235,12 @@ export function LogInForm(props: ILogInFormProps) {
                     setStatus("error");
                     setDialogError(error.message);
 
+                    currentRequestAbortController = null;
+
+                    return;
+                }
+
+                if (abortSignal.aborted) {
                     return;
                 }
 
@@ -200,6 +249,18 @@ export function LogInForm(props: ILogInFormProps) {
                 break;
             }
         }
+
+        currentRequestAbortController = null;
+    };
+
+    const handleCurrentRequestDismissed = () => {
+        currentRequestAbortController?.abort();
+        currentRequestAbortController = null;
+
+        setActiveMethod(null);
+        setStatus("waiting");
+        setError(null);
+        setDialogError(null);
     };
 
     return (
@@ -223,6 +284,7 @@ export function LogInForm(props: ILogInFormProps) {
                         }
                         statusType={status()}
                         alternateAction="Didn't get the push notification? Click here to scan a QR code instead"
+                        onClose={handleCurrentRequestDismissed}
                     />
                 </Match>
                 <Match when={activeMethod() === "webAuthn"}>
@@ -236,6 +298,7 @@ export function LogInForm(props: ILogInFormProps) {
                                 : dialogError() ?? "Failed"
                         }
                         statusType={status()}
+                        onClose={handleCurrentRequestDismissed}
                     />
                 </Match>
                 <Match when={activeMethod() === "emailMagicLink"}>
@@ -249,6 +312,7 @@ export function LogInForm(props: ILogInFormProps) {
                                 : dialogError() ?? "Failed"
                         }
                         statusType={status()}
+                        onClose={handleCurrentRequestDismissed}
                     />
                 </Match>
             </Switch>
