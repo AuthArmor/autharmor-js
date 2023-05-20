@@ -126,6 +126,8 @@ export class AuthArmorApiClient {
     public async startAuthenticatorNotificationAuthenticationAsync({
         username,
         useVisualVerify,
+        actionName,
+        shortMessage,
         originLocation,
         timeoutSeconds,
         reCaptchaToken,
@@ -139,8 +141,8 @@ export class AuthArmorApiClient {
                 send_push: true,
                 use_visual_verify: useVisualVerify,
                 origin_location_data: originLocation,
-                action_name: "Login",
-                short_msg: "Login",
+                action_name: actionName,
+                short_msg: shortMessage,
                 timeout_in_seconds: timeoutSeconds,
                 google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
@@ -157,6 +159,8 @@ export class AuthArmorApiClient {
      */
     public async startAuthenticatorQrCodeAuthenticationAsync({
         useVisualVerify,
+        actionName,
+        shortMessage,
         originLocation,
         timeoutSeconds,
         reCaptchaToken,
@@ -169,8 +173,8 @@ export class AuthArmorApiClient {
                 send_push: false,
                 use_visual_verify: useVisualVerify,
                 origin_location_data: originLocation,
-                action_name: "Login",
-                short_msg: "Login",
+                action_name: actionName,
+                short_msg: shortMessage,
                 timeout_in_seconds: timeoutSeconds,
                 google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
@@ -238,6 +242,8 @@ export class AuthArmorApiClient {
     public async sendMagicLinkForAuthenticationAsync({
         username,
         redirectUrl,
+        actionName,
+        shortMessage,
         originLocation,
         timeoutSeconds,
         reCaptchaToken,
@@ -250,8 +256,8 @@ export class AuthArmorApiClient {
                 username,
                 authentication_redirect_url: redirectUrl,
                 origin_location_data: originLocation,
-                action_name: "Login",
-                short_msg: "Login",
+                action_name: actionName,
+                short_msg: shortMessage,
                 timeout_in_seconds: timeoutSeconds,
                 google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
@@ -266,6 +272,8 @@ export class AuthArmorApiClient {
      */
     public async startAuthenticatorRegistrationAsync({
         username,
+        actionName,
+        shortMessage,
         originLocation,
         timeoutSeconds,
         nonce
@@ -276,8 +284,8 @@ export class AuthArmorApiClient {
             {
                 username,
                 origin_location_data: originLocation,
-                action_name: "Register",
-                short_msg: "Register",
+                action_name: actionName,
+                short_msg: shortMessage,
                 timeout_in_seconds: timeoutSeconds,
                 nonce
             }
@@ -297,8 +305,6 @@ export class AuthArmorApiClient {
         username,
         attachmentType,
         webAuthnClientId,
-        originLocation,
-        timeoutSeconds,
         nonce
     }: IStartWebAuthnRegistrationRequest): Promise<IWebAuthnRegistrationSession> {
         return await this.fetchAsync<IWebAuthnRegistrationSession>(
@@ -308,10 +314,6 @@ export class AuthArmorApiClient {
                 username,
                 attachment_type: attachmentType,
                 webauthn_client_id: webAuthnClientId,
-                origin_location_data: originLocation,
-                action_name: "Register",
-                short_msg: "Register",
-                timeout_in_seconds: timeoutSeconds,
                 nonce
             }
         );
@@ -352,6 +354,8 @@ export class AuthArmorApiClient {
     public async sendMagicLinkForRegistrationAsync({
         username,
         redirectUrl,
+        actionName,
+        shortMessage,
         originLocation,
         timeoutSeconds,
         nonce
@@ -362,6 +366,8 @@ export class AuthArmorApiClient {
             {
                 email_address: username,
                 registration_redirect_url: redirectUrl,
+                action_name: actionName,
+                short_msg: shortMessage,
                 origin_location_data: originLocation,
                 timeout_in_seconds: timeoutSeconds,
                 nonce
