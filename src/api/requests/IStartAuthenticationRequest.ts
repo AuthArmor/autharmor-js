@@ -1,7 +1,9 @@
 export interface IStartAuthenticationRequest {
-    reCaptchaToken?: string;
+    actionName: string;
+    shortMessage: string;
     originLocation?: IOriginLocation;
     timeoutSeconds: number;
+    reCaptchaToken?: string;
     nonce: string;
 }
 
@@ -35,9 +37,11 @@ export interface IStartRegistrationRequest extends IStartAuthenticationRequest {
 
 export interface IStartAuthenticatorRegistrationRequest extends IStartRegistrationRequest {}
 
-export interface IStartWebAuthnRegistrationRequest extends IStartRegistrationRequest {
+export interface IStartWebAuthnRegistrationRequest {
+    username: string;
     attachmentType: WebAuthnAttachmentType;
     webAuthnClientId: string;
+    nonce: string;
 }
 
 export interface IStartMagicLinkRegistrationRequest extends IStartRegistrationRequest {
