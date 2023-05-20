@@ -43,10 +43,10 @@ export function LogInForm(props: ILogInFormProps) {
     let usernameTextbox: HTMLInputElement = undefined!;
 
     const selectAuthenticationMethod = (
-        availableMethods: IAvailableAuthenticationMethods
+        methods: IAvailableAuthenticationMethods
     ): Promise<keyof IAvailableAuthenticationMethods | null> => {
         return new Promise((resolve) => {
-            const methodCount = Object.values(availableMethods).reduce(
+            const methodCount = Object.values(methods).reduce(
                 (prev, curr) => prev + (curr ? 1 : 0),
                 0
             );
@@ -56,15 +56,19 @@ export function LogInForm(props: ILogInFormProps) {
                 return;
             } else if (methodCount === 1) {
                 const method = (
-                    Object.keys(availableMethods) as (keyof IAvailableAuthenticationMethods)[]
-                ).find((method) => availableMethods[method] === true)!;
+                    Object.keys(methods) as (keyof IAvailableAuthenticationMethods)[]
+                ).find((method) => methods[method] === true)!;
 
                 resolve(method);
                 return;
             }
 
             setIsSelectingMethod(true);
-            setAvailableMethods(availableMethods);
+            setAvailableMethods({
+                authenticator: props.enableAuthenticator && methods.authenticator,
+                webAuthn: props.enableWebAuthn && methods.webAuthn,
+                emailMagicLink: props.enableEmailMagicLink && methods.emailMagicLink
+            });
 
             const clearSelector = () => {
                 setIsSelectingMethod(false);
@@ -180,7 +184,7 @@ export function LogInForm(props: ILogInFormProps) {
 
                 try {
                     await client.sendLoginMagicLinkAsync(username, magicLinkRedirectUrl);
-                } catch (error: ApiError | unknown) {
+                } catch (error: unknown) {
                     if (!(error instanceof ApiError)) {
                         throw error;
                     }
