@@ -3,14 +3,7 @@ import { Show, createSignal, onCleanup, onMount } from "solid-js";
 import { useClient } from "./context/useClient";
 import { AuthenticationResult, IAuthenticationSuccessResult, QrCodeResult } from "src/client";
 import { ApiError } from "src/api";
-
-const qrCodeOptions: QRCodeToDataURLOptions = {
-    margin: 1,
-    color: {
-        light: "#202020FF",
-        dark: "#2CB2B5FF"
-    }
-};
+import { QrCode } from "./common/QrCode";
 
 export interface IQrSignInProps {
     onLogIn: (authenticationResult: IAuthenticationSuccessResult) => void;
@@ -21,7 +14,7 @@ export default function QrSignIn(props: IQrSignInProps) {
 
     const client = useClient();
 
-    const [qrCodeSrc, setQrCodeSrc] = createSignal<string | null>(null);
+    const [signInUrl, setSignInUrl] = createSignal<string | null>(null);
     // const [remainingTimeSeconds, setRemainingTimeSeconds] = createSignal<number | null>(null);
 
     const [isLoading, setIsLoading] = createSignal(false);
@@ -57,9 +50,7 @@ export default function QrSignIn(props: IQrSignInProps) {
             return;
         }
 
-        const qrCodeDataUrl = await toDataURL(qrResult.qrCodeUrl, qrCodeOptions);
-
-        setQrCodeSrc(qrCodeDataUrl);
+        setSignInUrl(qrResult.qrCodeUrl);
         // setRemainingTimeSeconds(60);
         setIsLoading(false);
 
@@ -76,7 +67,7 @@ export default function QrSignIn(props: IQrSignInProps) {
                 throw error;
             }
 
-            setQrCodeSrc(null);
+            setSignInUrl(null);
             setError(error.message);
 
             return;
@@ -88,7 +79,7 @@ export default function QrSignIn(props: IQrSignInProps) {
 
         // ensureIntervalIsCleared();
 
-        setQrCodeSrc(null);
+        setSignInUrl(null);
         // setRemainingTimeSeconds(null);
 
         if (authenticationResult.succeeded) {
@@ -134,8 +125,8 @@ export default function QrSignIn(props: IQrSignInProps) {
     return (
         <section>
             <div>
-                <Show when={qrCodeSrc() !== null}>
-                    <img src={qrCodeSrc()!} alt="QR Code to scan" />
+                <Show when={signInUrl() !== null}>
+                    <QrCode data={signInUrl()!} />
                 </Show>
                 <Show when={isLoading()}>
                     <p>Loading...</p>
