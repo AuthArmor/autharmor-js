@@ -130,7 +130,7 @@ export class AuthArmorClient {
             actionName = "Log in",
             shortMessage = "Login pending, please authorize",
             timeoutSeconds = 60
-        }: Partial<IAuthenticatorNotificationLogInOptions>
+        }: Partial<IAuthenticatorNotificationLogInOptions> = {}
     ): Promise<AuthenticationResult> {
         await this.ensureInitialized();
 
@@ -165,7 +165,7 @@ export class AuthArmorClient {
         actionName = "Log in",
         shortMessage = "Log in pending, please authorize",
         timeoutSeconds = 60
-    }: Partial<IAuthenticatorQrCodeLogInOptions>): Promise<QrCodeResult<AuthenticationResult>> {
+    }: Partial<IAuthenticatorQrCodeLogInOptions> = {}): Promise<QrCodeResult<AuthenticationResult>> {
         await this.ensureInitialized();
 
         const reCaptchaToken = await this.reCaptchaService.executeAsync("auth");
@@ -212,7 +212,7 @@ export class AuthArmorClient {
             actionName = "Log in",
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 300
-        }: Partial<IEmailMagicLinkLogInOptions>
+        }: Partial<IEmailMagicLinkLogInOptions> = {}
     ): Promise<void> {
         await this.ensureInitialized();
 
@@ -294,7 +294,7 @@ export class AuthArmorClient {
             actionName = "Log in",
             shortMessage = "Registration pending, please authorize",
             timeoutSeconds = 120
-        }: Partial<IAuthenticatorRegisterOptions>
+        }: Partial<IAuthenticatorRegisterOptions> = {}
     ): Promise<QrCodeResult<RegistrationResult>> {
         await this.ensureInitialized();
 
@@ -337,7 +337,7 @@ export class AuthArmorClient {
             actionName = "Register",
             shortMessage = "Registration pending, please authorize",
             timeoutSeconds = 300
-        }: Partial<IEmailMagicLinkRegisterOptions>
+        }: Partial<IEmailMagicLinkRegisterOptions> = {}
     ): Promise<void> {
         await this.ensureInitialized();
 
@@ -362,7 +362,7 @@ export class AuthArmorClient {
      */
     public async registerWithWebAuthnAsync(
         username: string,
-        { attachmentType = "Any" }: Partial<IWebAuthnRegisterOptions>
+        { attachmentType = "Any" }: Partial<IWebAuthnRegisterOptions> = {}
     ): Promise<RegistrationResult> {
         if (this.webAuthnClientId === null) {
             throw new Error("This AuthArmorClient was not instantiated with WebAuthn support");
