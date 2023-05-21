@@ -1,7 +1,10 @@
+import { JSXElement } from "solid-js";
 import { Portal, Show } from "solid-js/web";
 
 export interface IDialogProps {
     title?: string;
+
+    children?: JSXElement;
 
     statusMessage: string;
     statusType: DialogStatusType;
@@ -33,6 +36,8 @@ export function Dialog(props: IDialogProps) {
                 <Show when={props.title !== undefined}>
                     <p>{props.title}</p>
                 </Show>
+
+                {props.children}
 
                 <div>{props.statusMessage}</div>
 

@@ -4,6 +4,7 @@ import { AuthArmorClient } from "../client/AuthArmorClient";
 import { ClientProvider } from "./context/ClientProvider";
 import { LogInForm } from "./LogInForm";
 import QrSignIn from "./QrSignIn";
+import { RegistrationForm } from "./RegistrationForm";
 
 export interface IAuthenticationFormProps {
     client: AuthArmorClient;
@@ -15,6 +16,9 @@ export interface IAuthenticationFormProps {
     enableEmailMagicLink: boolean;
     enableWebAuthn: boolean;
 
+    logInMagicLinkRedirectUrl?: string;
+    registrationMagicLinkRedirectUrl?: string;
+
     onLogIn: (authenticationResult: IAuthenticationSuccessResult) => void;
     onRegister: (registrationResult: IRegistrationSuccessResult) => void;
 }
@@ -22,6 +26,10 @@ export interface IAuthenticationFormProps {
 export function AuthenticationForm(props: IAuthenticationFormProps): JSXElement {
     const handleLogIn = (authenticationResult: IAuthenticationSuccessResult) => {
         props.onLogIn?.(authenticationResult);
+    };
+
+    const handleRegister = (registrationResult: IRegistrationSuccessResult) => {
+        props.onRegister?.(registrationResult);
     };
 
     return (
@@ -47,7 +55,18 @@ export function AuthenticationForm(props: IAuthenticationFormProps): JSXElement 
                         enableAuthenticator={props.enableAuthenticator}
                         enableEmailMagicLink={props.enableEmailMagicLink}
                         enableWebAuthn={props.enableWebAuthn}
+                        magicLinkRedirectUrl={props.logInMagicLinkRedirectUrl}
                         onLogIn={handleLogIn}
+                    />
+                </div>
+                <div>
+                    <p>Register with a username</p>
+                    <RegistrationForm
+                        enableAuthenticator={props.enableAuthenticator}
+                        enableEmailMagicLink={props.enableEmailMagicLink}
+                        enableWebAuthn={props.enableWebAuthn}
+                        magicLinkRedirectUrl={props.registrationMagicLinkRedirectUrl}
+                        onRegister={handleRegister}
                     />
                 </div>
             </div>
