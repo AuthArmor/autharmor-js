@@ -117,6 +117,8 @@ export function LogInForm(props: ILogInFormProps) {
         if (username === "") {
             setError("Username is empty");
 
+            currentRequestAbortController = null;
+
             return;
         }
 
