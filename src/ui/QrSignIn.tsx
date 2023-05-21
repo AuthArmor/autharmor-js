@@ -1,4 +1,3 @@
-import { QRCodeToDataURLOptions, toDataURL } from "qrcode";
 import { Show, createSignal, onCleanup, onMount } from "solid-js";
 import { useClient } from "./context/useClient";
 import { AuthenticationResult, IAuthenticationSuccessResult, QrCodeResult } from "../client";
