@@ -5,7 +5,7 @@ import {
     IRegistrationSuccessResult,
     RegistrationFailureReason
 } from "../client";
-import { Dialog, DialogStatusType } from "./common/Dialog";
+import { StatusDialog, DialogStatusType } from "./common/StatusDialog";
 import { ApiError } from "../api";
 import { QrCode } from "./common/QrCode";
 import { selectAuthenticationMethod } from "./dialogs/selectAuthenticationMethod";
@@ -203,7 +203,7 @@ export function RegistrationForm(props: RegistrationFormProps) {
 
             <Switch>
                 <Match when={activeMethod() === "authenticator"}>
-                    <Dialog
+                    <StatusDialog
                         statusMessage={
                             status() === "waiting"
                                 ? registrationUrl() === null
@@ -219,10 +219,10 @@ export function RegistrationForm(props: RegistrationFormProps) {
                         <Show when={registrationUrl() !== null}>
                             <QrCode data={registrationUrl()!} />
                         </Show>
-                    </Dialog>
+                    </StatusDialog>
                 </Match>
                 <Match when={activeMethod() === "webAuthn"}>
-                    <Dialog
+                    <StatusDialog
                         title="We've sent a registration request to your device"
                         statusMessage={
                             status() === "waiting"
@@ -236,7 +236,7 @@ export function RegistrationForm(props: RegistrationFormProps) {
                     />
                 </Match>
                 <Match when={activeMethod() === "emailMagicLink"}>
-                    <Dialog
+                    <StatusDialog
                         title="We've sent you an email magic link to register yourself"
                         statusMessage={
                             status() === "waiting"
