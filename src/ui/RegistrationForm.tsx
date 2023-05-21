@@ -6,9 +6,9 @@ import {
     RegistrationFailureReason
 } from "../client";
 import { Dialog, DialogStatusType } from "./common/Dialog";
-import { AuthenticationMethodPicker } from "./common/AuthenticationMethodPicker";
 import { ApiError } from "../api";
 import { QrCode } from "./common/QrCode";
+import { selectAuthenticationMethod } from "./dialogs/selectAuthenticationMethod";
 
 export interface RegistrationFormProps {
     enableAuthenticator: boolean;
@@ -33,74 +33,12 @@ export function RegistrationForm(props: RegistrationFormProps) {
     const [dialogError, setDialogError] = createSignal<string | null>(null);
     const [error, setError] = createSignal<string | null>(null);
 
-    const [isSelectingMethod, setIsSelectingMethod] = createSignal(false);
-    const [availableMethods, setAvailableMethods] = createSignal<IAvailableAuthenticationMethods>({
-        authenticator: false,
-        emailMagicLink: false,
-        webAuthn: false
-    });
-    let methodSelectedHandler:
-        | ((method: keyof IAvailableAuthenticationMethods | null) => void)
-        | null = null;
-    let methodSelectorDismissedHandler: (() => void) | null = null;
-
     let usernameTextbox: HTMLInputElement = undefined!;
-
-    const selectRegistrationMethod = (
-        availableMethods: IAvailableAuthenticationMethods
-    ): Promise<keyof IAvailableAuthenticationMethods | null> => {
-        return new Promise((resolve) => {
-            const methodCount = Object.values(availableMethods).reduce(
-                (prev, curr) => prev + (curr ? 1 : 0),
-                0
-            );
-
-            if (methodCount === 0) {
-                resolve(null);
-                return;
-            } else if (methodCount === 1) {
-                const method = (
-                    Object.keys(availableMethods) as (keyof IAvailableAuthenticationMethods)[]
-                ).find((method) => availableMethods[method] === true)!;
-
-                resolve(method);
-                return;
-            }
-
-            setIsSelectingMethod(true);
-            setAvailableMethods(availableMethods);
-
-            const clearSelector = () => {
-                setIsSelectingMethod(false);
-
-                methodSelectedHandler = null;
-                methodSelectorDismissedHandler = null;
-            };
-
-            methodSelectedHandler = (method) => {
-                clearSelector();
-                resolve(method);
-            };
-
-            methodSelectorDismissedHandler = () => {
-                clearSelector();
-                resolve(null);
-            };
-        });
-    };
-
-    const handleMethodSelected = (method: keyof IAvailableAuthenticationMethods) => {
-        methodSelectedHandler?.(method);
-    };
-
-    const handleMethodSelectorDismissed = () => {
-        methodSelectorDismissedHandler?.();
-    };
 
     const handleRegister = async (event: Event) => {
         event.preventDefault();
 
-        currentRequestAbortController?.abort();
+        currentRequestAbortController?.abort("Operation cancelled");
         currentRequestAbortController = new AbortController();
 
         const abortSignal = currentRequestAbortController.signal;
@@ -127,7 +65,17 @@ export function RegistrationForm(props: RegistrationFormProps) {
             emailMagicLink: props.enableEmailMagicLink
         };
 
-        const selectedMethod = await selectRegistrationMethod(availableMethods);
+        let selectedMethod: keyof IAvailableAuthenticationMethods;
+
+        try {
+            selectedMethod = await selectAuthenticationMethod(availableMethods, abortSignal);
+        } catch (error: unknown) {
+            if (abortSignal.aborted) {
+                return;
+            }
+
+            throw error;
+        }
 
         if (abortSignal.aborted) {
             return;
@@ -236,7 +184,7 @@ export function RegistrationForm(props: RegistrationFormProps) {
     };
 
     const handleCurrentRequestDismissed = () => {
-        currentRequestAbortController?.abort();
+        currentRequestAbortController?.abort("Operation cancelled");
         currentRequestAbortController = null;
 
         setActiveMethod(null);
@@ -302,14 +250,6 @@ export function RegistrationForm(props: RegistrationFormProps) {
                     />
                 </Match>
             </Switch>
-
-            <Show when={isSelectingMethod()}>
-                <AuthenticationMethodPicker
-                    authenticationMethods={availableMethods()}
-                    onAuthenticationMethodSelected={handleMethodSelected}
-                    onDialogDismissed={handleMethodSelectorDismissed}
-                />
-            </Show>
         </form>
     );
 }

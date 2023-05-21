@@ -7,7 +7,7 @@ import {
 } from "../client/models";
 import { useClient } from "./context/useClient";
 import { Dialog, DialogStatusType } from "./common/Dialog";
-import { AuthenticationMethodPicker } from "./common/AuthenticationMethodPicker";
+import { selectAuthenticationMethod } from "./dialogs/selectAuthenticationMethod";
 
 export interface ILogInFormProps {
     enableAuthenticator: boolean;
@@ -31,78 +31,12 @@ export function LogInForm(props: ILogInFormProps) {
     const [dialogError, setDialogError] = createSignal<string | null>(null);
     const [error, setError] = createSignal<string | null>(null);
 
-    const [isSelectingMethod, setIsSelectingMethod] = createSignal(false);
-    const [availableMethods, setAvailableMethods] = createSignal<IAvailableAuthenticationMethods>({
-        authenticator: false,
-        emailMagicLink: false,
-        webAuthn: false
-    });
-    let methodSelectedHandler:
-        | ((method: keyof IAvailableAuthenticationMethods | null) => void)
-        | null = null;
-    let methodSelectorDismissedHandler: (() => void) | null = null;
-
     let usernameTextbox: HTMLInputElement = undefined!;
-
-    const selectAuthenticationMethod = (
-        methods: IAvailableAuthenticationMethods
-    ): Promise<keyof IAvailableAuthenticationMethods | null> => {
-        return new Promise((resolve) => {
-            const methodCount = Object.values(methods).reduce(
-                (prev, curr) => prev + (curr ? 1 : 0),
-                0
-            );
-
-            if (methodCount === 0) {
-                resolve(null);
-                return;
-            } else if (methodCount === 1) {
-                const method = (
-                    Object.keys(methods) as (keyof IAvailableAuthenticationMethods)[]
-                ).find((method) => methods[method] === true)!;
-
-                resolve(method);
-                return;
-            }
-
-            setIsSelectingMethod(true);
-            setAvailableMethods({
-                authenticator: props.enableAuthenticator && methods.authenticator,
-                webAuthn: props.enableWebAuthn && methods.webAuthn,
-                emailMagicLink: props.enableEmailMagicLink && methods.emailMagicLink
-            });
-
-            const clearSelector = () => {
-                setIsSelectingMethod(false);
-
-                methodSelectedHandler = null;
-                methodSelectorDismissedHandler = null;
-            };
-
-            methodSelectedHandler = (method) => {
-                clearSelector();
-                resolve(method);
-            };
-
-            methodSelectorDismissedHandler = () => {
-                clearSelector();
-                resolve(null);
-            };
-        });
-    };
-
-    const handleMethodSelected = (method: keyof IAvailableAuthenticationMethods) => {
-        methodSelectedHandler?.(method);
-    };
-
-    const handleMethodSelectorDismissed = () => {
-        methodSelectorDismissedHandler?.();
-    };
 
     const handleLogIn = async (event: Event) => {
         event.preventDefault();
 
-        currentRequestAbortController?.abort();
+        currentRequestAbortController?.abort("Operation cancelled");
         currentRequestAbortController = new AbortController();
 
         const abortSignal = currentRequestAbortController.signal;
@@ -148,7 +82,17 @@ export function LogInForm(props: ILogInFormProps) {
             return;
         }
 
-        const selectedMethod = await selectAuthenticationMethod(availableMethods);
+        let selectedMethod: keyof IAvailableAuthenticationMethods;
+
+        try {
+            selectedMethod = await selectAuthenticationMethod(availableMethods, abortSignal);
+        } catch (error: unknown) {
+            if (abortSignal.aborted) {
+                return;
+            }
+
+            throw error;
+        }
 
         if (abortSignal.aborted) {
             return;
@@ -256,7 +200,7 @@ export function LogInForm(props: ILogInFormProps) {
     };
 
     const handleCurrentRequestDismissed = () => {
-        currentRequestAbortController?.abort();
+        currentRequestAbortController?.abort("Operation cancelled");
         currentRequestAbortController = null;
 
         setActiveMethod(null);
@@ -318,14 +262,6 @@ export function LogInForm(props: ILogInFormProps) {
                     />
                 </Match>
             </Switch>
-
-            <Show when={isSelectingMethod()}>
-                <AuthenticationMethodPicker
-                    authenticationMethods={availableMethods()}
-                    onAuthenticationMethodSelected={handleMethodSelected}
-                    onDialogDismissed={handleMethodSelectorDismissed}
-                />
-            </Show>
         </form>
     );
 }
