@@ -1,8 +1,8 @@
 import { QRCodeToDataURLOptions, toDataURL } from "qrcode";
 import { Show, createSignal, onCleanup, onMount } from "solid-js";
 import { useClient } from "./context/useClient";
-import { AuthenticationResult, IAuthenticationSuccessResult, QrCodeResult } from "src/client";
-import { ApiError } from "src/api";
+import { AuthenticationResult, IAuthenticationSuccessResult, QrCodeResult } from "../client";
+import { ApiError } from "../api";
 import { QrCode } from "./common/QrCode";
 
 export interface IQrSignInProps {
