@@ -6,7 +6,7 @@ import {
     IAvailableAuthenticationMethods
 } from "../client/models";
 import { useClient } from "./context/useClient";
-import { Dialog, DialogStatusType } from "./common/Dialog";
+import { StatusDialog, DialogStatusType } from "./common/StatusDialog";
 import { selectAuthenticationMethod } from "./dialogs/selectAuthenticationMethod";
 
 export interface ILogInFormProps {
@@ -219,7 +219,7 @@ export function LogInForm(props: ILogInFormProps) {
 
             <Switch>
                 <Match when={activeMethod() === "authenticator"}>
-                    <Dialog
+                    <StatusDialog
                         title="We've sent a push message to your device(s)"
                         statusMessage={
                             status() === "waiting"
@@ -234,7 +234,7 @@ export function LogInForm(props: ILogInFormProps) {
                     />
                 </Match>
                 <Match when={activeMethod() === "webAuthn"}>
-                    <Dialog
+                    <StatusDialog
                         title="We've sent an authentication request to your device"
                         statusMessage={
                             status() === "waiting"
@@ -248,7 +248,7 @@ export function LogInForm(props: ILogInFormProps) {
                     />
                 </Match>
                 <Match when={activeMethod() === "emailMagicLink"}>
-                    <Dialog
+                    <StatusDialog
                         title="We've sent you an email magic link to log you in"
                         statusMessage={
                             status() === "waiting"

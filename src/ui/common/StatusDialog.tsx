@@ -1,7 +1,7 @@
 import { JSXElement } from "solid-js";
 import { Portal, Show } from "solid-js/web";
 
-export interface IDialogProps {
+export interface IStatusDialogProps {
     title?: string;
 
     children?: JSXElement;
@@ -17,7 +17,7 @@ export interface IDialogProps {
 
 export type DialogStatusType = "waiting" | "success" | "error";
 
-export function Dialog(props: IDialogProps) {
+export function StatusDialog(props: IStatusDialogProps) {
     const handleClose = () => {
         props.onClose?.();
     }
