@@ -14,7 +14,7 @@ import {
 import {
     IAuthenticationSession,
     IAuthenticatorAuthenticationSession,
-    IAuthenticatorQrCodeAuthenticationSession,
+    IAuthenticatorUsernamelessAuthenticationSession,
     IMagicLinkAuthenticationSession,
     IWebAuthnAuthenticationSession
 } from "./IAuthenticationSession";
@@ -36,7 +36,7 @@ export type {
     IWebAuthnRegistrationResult,
     IAuthenticationSession,
     IAuthenticatorAuthenticationSession,
-    IAuthenticatorQrCodeAuthenticationSession,
+    IAuthenticatorUsernamelessAuthenticationSession,
     IMagicLinkAuthenticationSession,
     IWebAuthnAuthenticationSession,
     IRegistrationSession,

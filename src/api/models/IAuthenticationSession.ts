@@ -11,14 +11,10 @@ export interface IAuthenticatorAuthenticationSession extends IAuthenticationSess
     auth_validation_token: string;
     push_message_sent: boolean;
     visual_verify_value: string;
-}
-
-export interface IAuthenticatorNotificationAuthenticationSession extends IAuthenticatorAuthenticationSession {
-    push_message_sent: true;
-}
-
-export interface IAuthenticatorQrCodeAuthenticationSession extends IAuthenticatorAuthenticationSession {
     qr_code_data: string;
+}
+
+export interface IAuthenticatorUsernamelessAuthenticationSession extends IAuthenticatorAuthenticationSession {
     push_message_sent: false;
 }
 

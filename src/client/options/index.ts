@@ -1,8 +1,8 @@
 import {
     ILogInOptions,
     IAuthenticatorLogInOptions,
-    IAuthenticatorNotificationLogInOptions,
-    IAuthenticatorQrCodeLogInOptions,
+    IAuthenticatorUserSpecificLogInOptions,
+    IAuthenticatorUsernamelessLogInOptions,
     IEmailMagicLinkLogInOptions
 } from "./ILogInOptions";
 import {
@@ -15,8 +15,8 @@ import {
 export type {
     ILogInOptions,
     IAuthenticatorLogInOptions,
-    IAuthenticatorNotificationLogInOptions,
-    IAuthenticatorQrCodeLogInOptions,
+    IAuthenticatorUserSpecificLogInOptions,
+    IAuthenticatorUsernamelessLogInOptions,
     IEmailMagicLinkLogInOptions,
     IRegisterOptions,
     IAuthenticatorRegisterOptions,

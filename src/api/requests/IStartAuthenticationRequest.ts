@@ -11,12 +11,13 @@ export interface IStartAuthenticatorAuthenticationRequest extends IStartAuthenti
     useVisualVerify: boolean;
 }
 
-export interface IStartAuthenticatorNotificationAuthenticationRequest
+export interface IStartAuthenticatorUserSpecificAuthenticationRequest
     extends IStartAuthenticatorAuthenticationRequest {
     username: string;
+    sendPushNotification: boolean;
 }
 
-export interface IStartAuthenticatorQrCodeAuthenticationRequest
+export interface IStartAuthenticatorUsernamelessAuthenticationRequest
     extends IStartAuthenticatorAuthenticationRequest {}
 
 export interface IStartWebAuthnAuthenticationRequest {
