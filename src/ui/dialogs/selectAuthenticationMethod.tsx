@@ -52,11 +52,11 @@ export async function selectAuthenticationMethod(
     abortSignal?: AbortSignal
 ): Promise<keyof IAvailableAuthenticationMethods> {
     const authenticationMethod = await renderDialog<keyof IAvailableAuthenticationMethods>(
-        (resolve, reject) => (
+        (resolve, dismiss) => (
             <AuthenticationMethodSelectionDialog
                 authenticationMethods={authenticationMethods}
                 onAuthenticationMethodSelect={resolve}
-                onDismiss={reject}
+                onDismiss={dismiss}
             />
         ),
         abortSignal
