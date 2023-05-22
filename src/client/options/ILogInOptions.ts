@@ -8,9 +8,11 @@ export interface IAuthenticatorLogInOptions extends ILogInOptions {
     shortMessage: string;
 }
 
-export interface IAuthenticatorNotificationLogInOptions extends IAuthenticatorLogInOptions {}
+export interface IAuthenticatorUsernamelessLogInOptions extends IAuthenticatorLogInOptions {}
 
-export interface IAuthenticatorQrCodeLogInOptions extends IAuthenticatorLogInOptions {}
+export interface IAuthenticatorUserSpecificLogInOptions extends IAuthenticatorLogInOptions {
+    sendPushNotification: boolean;
+}
 
 export interface IEmailMagicLinkLogInOptions extends ILogInOptions {
     actionName: string;

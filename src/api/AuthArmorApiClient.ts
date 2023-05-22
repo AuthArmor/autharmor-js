@@ -8,14 +8,14 @@ import {
     IAuthenticationRequestStatus,
     IWebAuthnRegistrationSession,
     IMagicLinkRegistrationSession,
-    IAuthenticatorQrCodeAuthenticationSession,
     IAuthenticatorAuthenticationSession,
     IWebAuthnAuthenticationSession,
     IAuthenticatorRegistrationSession,
     IApiError,
     IMagicLinkAuthenticationSession,
     IWebAuthnAuthenticationResult,
-    IWebAuthnRegistrationResult
+    IWebAuthnRegistrationResult,
+    IAuthenticatorUsernamelessAuthenticationSession
 } from "./models";
 import {
     ICompleteWebAuthnAuthenticationRequest,
@@ -24,9 +24,9 @@ import {
     IGetAuthenticatorEnrollmentStatusRequest,
     IGetSdkConfigurationRequest,
     IGetUserEnrollmentsRequest,
-    IStartAuthenticatorNotificationAuthenticationRequest,
-    IStartAuthenticatorQrCodeAuthenticationRequest,
     IStartAuthenticatorRegistrationRequest,
+    IStartAuthenticatorUserSpecificAuthenticationRequest,
+    IStartAuthenticatorUsernamelessAuthenticationRequest,
     IStartMagicLinkAuthenticationRequest,
     IStartMagicLinkRegistrationRequest,
     IStartWebAuthnAuthenticationRequest,
@@ -116,7 +116,7 @@ export class AuthArmorApiClient {
     }
 
     /**
-     * Starts an authentication session using the AuthArmor Authenticator sending a push notification.
+     * Starts an authentication session for a specific user using the AuthArmor Authenticator.
      *
      * @returns The authentication session.
      *
@@ -124,8 +124,9 @@ export class AuthArmorApiClient {
      * Poll the status of the session using the `getAuthenticationSessionStatus` method. The
      * ReCaptcha action is `auth`.
      */
-    public async startAuthenticatorNotificationAuthenticationAsync({
+    public async startAuthenticatorUserSpecificAuthenticationAsync({
         username,
+        sendPushNotification,
         useVisualVerify,
         actionName,
         shortMessage,
@@ -133,13 +134,13 @@ export class AuthArmorApiClient {
         timeoutSeconds,
         reCaptchaToken,
         nonce
-    }: IStartAuthenticatorNotificationAuthenticationRequest): Promise<IAuthenticatorAuthenticationSession> {
+    }: IStartAuthenticatorUserSpecificAuthenticationRequest): Promise<IAuthenticatorAuthenticationSession> {
         return await this.fetchAsync<IAuthenticatorAuthenticationSession>(
             "/api/v3/auth/request/authenticator/start",
             "post",
             {
                 username,
-                send_push: true,
+                send_push: sendPushNotification,
                 use_visual_verify: useVisualVerify,
                 origin_location_data: originLocation,
                 action_name: actionName,
@@ -152,13 +153,13 @@ export class AuthArmorApiClient {
     }
 
     /**
-     * Starts an authentication session using the AuthArmor Authenticator with a QR code to be scanned.
+     * Starts a usernameless authentication session using the AuthArmor Authenticator with a QR code to be scanned.
      *
      * @returns The authentication session.
      *
      * @remarks Poll the status of the session using the `getAuthenticationSessionStatus` method.
      */
-    public async startAuthenticatorQrCodeAuthenticationAsync({
+    public async startAuthenticatorUsernamelessAuthenticationAsync({
         useVisualVerify,
         actionName,
         shortMessage,
@@ -166,8 +167,8 @@ export class AuthArmorApiClient {
         timeoutSeconds,
         reCaptchaToken,
         nonce
-    }: IStartAuthenticatorQrCodeAuthenticationRequest): Promise<IAuthenticatorQrCodeAuthenticationSession> {
-        return await this.fetchAsync<IAuthenticatorQrCodeAuthenticationSession>(
+    }: IStartAuthenticatorUsernamelessAuthenticationRequest): Promise<IAuthenticatorUsernamelessAuthenticationSession> {
+        return await this.fetchAsync<IAuthenticatorUsernamelessAuthenticationSession>(
             "/api/v3/auth/request/authenticator/start",
             "post",
             {

@@ -22,9 +22,9 @@ import { AuthArmorClientConfiguration } from "./config";
 import { WebAuthnService } from "../webAuthn/WebAuthnService";
 import { IWebAuthnLogIn, IWebAuthnRegistration } from "../webAuthn/models";
 import {
-    IAuthenticatorNotificationLogInOptions,
-    IAuthenticatorQrCodeLogInOptions,
     IAuthenticatorRegisterOptions,
+    IAuthenticatorUserSpecificLogInOptions,
+    IAuthenticatorUsernamelessLogInOptions,
     IEmailMagicLinkLogInOptions,
     IEmailMagicLinkRegisterOptions,
     IWebAuthnRegisterOptions
@@ -117,29 +117,29 @@ export class AuthArmorClient {
     }
 
     /**
-     * Logs in a user using an authenticator notification.
+     * Logs in a user using their authenticator app.
      *
-     * @param username The username of the user.
-     *
-     * @returns A promise that resolves with the authentication result.
+     * @returns A promise that resolves with a QR code result for the authentication result.
      */
-    public async logInWithAuthenticatorNotificationAsync(
+    public async logInWithAuthenticatorAsync(
         username: string,
         {
+            sendPushNotification = true,
             useVisualVerify = false,
             actionName = "Log in",
-            shortMessage = "Login pending, please authorize",
+            shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 60
-        }: Partial<IAuthenticatorNotificationLogInOptions> = {},
+        }: Partial<IAuthenticatorUserSpecificLogInOptions> = {},
         abortSignal?: AbortSignal
-    ): Promise<AuthenticationResult> {
+    ): Promise<QrCodeResult<AuthenticationResult>> {
         await this.ensureInitialized();
 
         const reCaptchaToken = await this.reCaptchaService.executeAsync("auth");
         const nonce = this.nonceGenerator.generateNonce();
 
-        const authSession = await this.apiClient.startAuthenticatorNotificationAuthenticationAsync({
+        const authSession = await this.apiClient.startAuthenticatorUserSpecificAuthenticationAsync({
             username,
+            sendPushNotification,
             useVisualVerify,
             actionName,
             shortMessage,
@@ -148,28 +148,32 @@ export class AuthArmorClient {
             nonce
         });
 
-        const result = await this.pollForAuthenticationResultAsync(
-            authSession.auth_request_id,
-            authSession.auth_validation_token,
-            timeoutSeconds,
-            abortSignal
-        );
+        const result: QrCodeResult<AuthenticationResult> = {
+            qrCodeUrl: authSession.qr_code_data,
+            resultAsync: async () =>
+                await this.pollForAuthenticationResultAsync(
+                    authSession.auth_request_id,
+                    authSession.auth_validation_token,
+                    timeoutSeconds,
+                    abortSignal
+                )
+        };
 
         return result;
     }
 
     /**
-     * Logs in a user using an authenticator QR code.
+     * Logs in a user using an authenticator QR code that is not user-specific.
      *
      * @returns A promise that resolves with a QR code result for the authentication result.
      */
-    public async logInWithAuthenticatorQrCodeAsync(
+    public async logInWithAuthenticatorUsernamelessAsync(
         {
             useVisualVerify = false,
             actionName = "Log in",
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 60
-        }: Partial<IAuthenticatorQrCodeLogInOptions> = {},
+        }: Partial<IAuthenticatorUsernamelessLogInOptions> = {},
         abortSignal?: AbortSignal
     ): Promise<QrCodeResult<AuthenticationResult>> {
         await this.ensureInitialized();
@@ -177,7 +181,7 @@ export class AuthArmorClient {
         const reCaptchaToken = await this.reCaptchaService.executeAsync("auth");
         const nonce = this.nonceGenerator.generateNonce();
 
-        const authSession = await this.apiClient.startAuthenticatorQrCodeAuthenticationAsync({
+        const authSession = await this.apiClient.startAuthenticatorUsernamelessAuthenticationAsync({
             useVisualVerify,
             actionName,
             shortMessage,
