@@ -1,8 +1,9 @@
 import { JSXElement } from "solid-js";
 import { render } from "solid-js/web";
+import { RequestDismissedError } from "../errors/RequestDismissedError";
 
 export function renderDialog<T>(
-    renderer: (resolve: (value: T) => void, reject: (reason?: any) => void) => JSXElement,
+    renderer: (resolve: (value: T) => void, dismiss: () => void) => JSXElement,
     abortSignal?: AbortSignal
 ): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -19,10 +20,10 @@ export function renderDialog<T>(
             cleanup();
             resolve(value);
         };
-
-        const handleRejected = (reason: any) => {
+        
+        const handleDismissed = () => {
             cleanup();
-            reject(reason);
+            reject(new RequestDismissedError());
         };
 
         const handleAborted = () => {
@@ -32,6 +33,6 @@ export function renderDialog<T>(
 
         abortSignal?.addEventListener("abort", handleAborted);
 
-        const dispose = render(() => renderer(handleResolved, handleRejected), renderRoot);
+        const dispose = render(() => renderer(handleResolved, handleDismissed), renderRoot);
     });
 }
