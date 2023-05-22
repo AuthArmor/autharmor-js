@@ -7,6 +7,11 @@ export function renderDialog<T>(
     abortSignal?: AbortSignal
 ): Promise<T> {
     return new Promise((resolve, reject) => {
+        if (abortSignal?.aborted) {
+            reject(abortSignal.reason);
+            return;
+        }
+
         const renderRoot = document.createElement("div");
         document.body.appendChild(renderRoot);
 
