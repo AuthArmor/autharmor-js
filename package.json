@@ -2,18 +2,18 @@
     "name": "autharmor-sdk",
     "version": "4.0.0",
     "type": "module",
-    "main": "dist/index.cjs",
-    "module": "dist/index.js",
-    "types": "dist/index.d.ts",
+    "source": "src/index.tsx",
+    "main": "dist/cjs/index.js",
+    "module": "dist/esm/index.js",
+    "types": "dist/types/index.d.ts",
     "exports": {
-        "solid": {
-            "import": "./dist/index.jsx"
-        },
-        "import": {
-            "types": "./dist/index.d.ts",
-            "default": "./dist/index.js"
-        },
-        "require": "./dist/index.cjs"
+        ".": {
+            "solid": "./dist/source/index.jsx",
+            "import": "./dist/esm/index.js",
+            "browser": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js",
+            "node": "./dist/cjs/index.js"
+        }
     },
     "license": "MIT",
     "homepage": "https://github.com/AuthArmor/autharmor-jsclient-sdk#readme",
@@ -25,7 +25,7 @@
         "./dist"
     ],
     "scripts": {
-        "build": "tsup",
+        "build": "rollup --config",
         "prepublishOnly": "pnpm build",
         "test": "vitest",
         "format": "prettier --ignore-path .gitignore -w \"src/**/*.{js,ts,json,css,tsx,jsx}\"",
@@ -42,11 +42,12 @@
     ],
     "devDependencies": {
         "@types/qrcode": "^1.5.0",
-        "esbuild": "^0.17.15",
+        "babel-preset-solid": "^1.7.4",
         "postcss": "^8.4.23",
         "prettier": "^2.8.7",
-        "tsup": "^6.7.0",
-        "tsup-preset-solid": "^0.1.8",
+        "rollup": "^3.22.0",
+        "rollup-plugin-postcss": "^4.0.2",
+        "rollup-preset-solid": "^2.0.1",
         "typescript": "^5.0.3",
         "typescript-plugin-css-modules": "^5.0.0"
     }
