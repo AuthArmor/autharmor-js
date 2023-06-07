@@ -119,6 +119,10 @@ export class AuthArmorClient {
     /**
      * Logs in a user using their authenticator app.
      *
+     * @param username The username of the user to log in.
+     * @param options The options to use for this request.
+     * @param abortSignal The abort signal to use for this request.
+     *
      * @returns A promise that resolves with a QR code result for the authentication result.
      */
     public async logInWithAuthenticatorAsync(
@@ -165,6 +169,9 @@ export class AuthArmorClient {
     /**
      * Logs in a user using an authenticator QR code that is not user-specific.
      *
+     * @param options The options to use for this request.
+     * @param abortSignal The abort signal to use for this request.
+     * 
      * @returns A promise that resolves with a QR code result for the authentication result.
      */
     public async logInWithAuthenticatorUsernamelessAsync(
@@ -209,6 +216,7 @@ export class AuthArmorClient {
      *
      * @param emailAddress The email address of the user.
      * @param redirectUrl The URL to redirect to after the user has logged in.
+     * @param options The options to use for this request.
      *
      * @returns A promise that resolves when the magic link has been sent.
      *
@@ -297,6 +305,8 @@ export class AuthArmorClient {
      * Registers a user using an authenticator QR code.
      *
      * @param username The username of the user.
+     * @param options The options to use for this request.
+     * @param abortSignal The abort signal to use for this request.
      *
      * @returns A promise that resolves with a QR code result for the registration result.
      */
@@ -339,6 +349,7 @@ export class AuthArmorClient {
      *
      * @param emailAddress The email address of the user.
      * @param redirectUrl The URL to redirect to after the user has logged in.
+     * @param options The options to use for this request.
      *
      * @returns A promise that resolves when the magic link has been sent.
      *
@@ -374,6 +385,7 @@ export class AuthArmorClient {
      * Registers a user using WebAuthn.
      *
      * @param username The username of the user.
+     * @param options The options to use for this request.
      *
      * @returns A promise that resolves with the registration result.
      */
@@ -431,6 +443,7 @@ export class AuthArmorClient {
      * @param sessionId The ID of the authentication session.
      * @param validationToken The validation token for the authentication session.
      * @param timeoutSeconds The number of seconds to wait before timing out.
+     * @param abortSignal The abort signal to use for this request.
      *
      * @returns A promise that resolves with the authentication result.
      */
@@ -501,6 +514,8 @@ export class AuthArmorClient {
      * Polls the API for the status of a registration request.
      *
      * @param userId The ID of the user.
+     * @param timeoutSeconds The number of seconds after which to consider the request timed out.
+     * @param abortSignal The abort signal to use for this request.
      *
      * @returns A promise that resolves with the registration result.
      */
