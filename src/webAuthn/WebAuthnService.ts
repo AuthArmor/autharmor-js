@@ -67,7 +67,7 @@ export class WebAuthnService {
 
         const data = {
             id: attestation.id,
-            rawId: attestation.rawId,
+            rawId: this.getBase64FromArrayBuffer(attestation.rawId),
             attestation_object: this.getBase64FromArrayBuffer(
                 "attestationObject" in attestationResponse
                     ? attestationResponse.attestationObject
