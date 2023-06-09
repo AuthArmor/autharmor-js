@@ -3,7 +3,9 @@ import babel from "@rollup/plugin-babel";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import { existsSync, rmSync } from "node:fs";
 import ts from "typescript";
-import pkg from "./package.json" assert { type: "json" };
+import requireJSON5 from "require-json5";
+
+const pkg = requireJSON5("./package.json")
 
 rmSync("dist", {
     force: true,
@@ -55,8 +57,7 @@ export default defineConfig({
                     rootDir: "src",
                     declarationDir: "dist/types",
                     declaration: true,
-                    emitDeclarationOnly: true,
-                    allowJs: true
+                    emitDeclarationOnly: true
                 }).emit();
             }
         }
