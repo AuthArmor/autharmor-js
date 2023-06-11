@@ -228,7 +228,7 @@ export class AuthArmorApiClient {
             {
                 authenticator_response_data: authenticatorResponseData,
                 auth_request_id: authRequestId,
-                autharmor_signature: authArmorSignature,
+                aa_sig: authArmorSignature,
                 webauthn_client_id: webAuthnClientId
             }
         );

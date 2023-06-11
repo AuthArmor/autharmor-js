@@ -29,6 +29,7 @@ import {
     IEmailMagicLinkRegisterOptions,
     IWebAuthnRegisterOptions
 } from "./options";
+import { WebAuthnRequestDeniedError } from "../webAuthn";
 
 /**
  * The client for programatically interacting with AuthArmor's client-side SDK.
@@ -275,18 +276,22 @@ export class AuthArmorClient {
 
         try {
             logIn = await this.webAuthnService.logInAsync(authSession);
-        } catch {
-            const result: IAuthenticationFailureResult = {
-                requestId: authSession.auth_request_id,
-                succeeded: false,
-                failureReason: "unknown"
-            };
+        } catch (error: unknown) {
+            if (error instanceof WebAuthnRequestDeniedError) {
+                const result: IAuthenticationFailureResult = {
+                    requestId: authSession.auth_request_id,
+                    succeeded: false,
+                    failureReason: "declined"
+                };
+    
+                return result;
+            }
 
-            return result;
+            throw error;
         }
 
         const webAuthnResult = await this.apiClient.completeWebAuthnAuthenticationAsync({
-            authenticatorResponseData: logIn.authenticator_response_data,
+            authenticatorResponseData: JSON.stringify(logIn.authenticator_response_data),
             authRequestId: logIn.auth_request_id,
             authArmorSignature: logIn.aa_sig,
             webAuthnClientId: this.webAuthnClientId

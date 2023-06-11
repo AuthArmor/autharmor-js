@@ -1,5 +1,6 @@
 import { BrowserBase64Coder } from "../infrastructure/BrowserBase64Coder";
 import { IBase64Coder } from "../infrastructure/IBase64Coder";
+import { WebAuthnRequestDeniedError } from "./errors";
 import { IWebAuthnLogIn, IWebAuthnRegistration } from "./models";
 import { IWebAuthnLogInRequest, IWebAuthnRegistrationRequest } from "./requests";
 import { IPublicKeyCredentialRequest } from "./requests/IPublicKeyCredentialRequest";
@@ -16,7 +17,7 @@ export class WebAuthnService {
         ) as IPublicKeyCredentialRequest;
         const publicKey = this.processPublicKeyCredentialRequest(jsonOptions);
 
-        const attestation = (await navigator.credentials.create({
+        const attestation = (await navigator.credentials.get({
             publicKey
         })) as PublicKeyCredential;
 
@@ -42,12 +43,22 @@ export class WebAuthnService {
         ) as IPublicKeyCredentialRequest;
         const publicKey = this.processPublicKeyCredentialRequest(jsonOptions);
 
-        const attestation = (await navigator.credentials.create({
-            publicKey
-        })) as PublicKeyCredential;
+        let attestation: PublicKeyCredential | null;
+
+        try {
+            attestation = (await navigator.credentials.create({
+                publicKey
+            })) as PublicKeyCredential | null;
+        } catch (error: unknown) {
+            if (error instanceof DOMException && error.name === "NotAllowedError") {
+                attestation = null;
+            } else {
+                throw error;
+            }
+        }
 
         if (attestation === null) {
-            throw new Error("Registration failed!");
+            throw new WebAuthnRequestDeniedError();
         }
 
         const result: IWebAuthnRegistration = {
@@ -60,7 +71,7 @@ export class WebAuthnService {
         return result;
     }
 
-    private getAuthenticatorResponseData(attestation: PublicKeyCredential): string {
+    private getAuthenticatorResponseData(attestation: PublicKeyCredential): object {
         const attestationResponse = attestation.response as
             | AuthenticatorAssertionResponse
             | AuthenticatorAttestationResponse;
@@ -79,13 +90,17 @@ export class WebAuthnService {
                     : null,
             client_data: this.getBase64FromArrayBuffer(attestationResponse.clientDataJSON),
             user_handle:
-                "userHandle" in attestationResponse ? attestationResponse.userHandle : null,
-            extensions: attestation.getClientExtensionResults()
+                "userHandle" in attestationResponse && attestationResponse.userHandle !== null
+                    ? this.getBase64FromArrayBuffer(attestationResponse.userHandle)
+                    : null,
+            extensions: attestation.getClientExtensionResults(),
+            signature:
+                "signature" in attestationResponse
+                    ? this.getBase64FromArrayBuffer(attestationResponse.signature)
+                    : null
         };
 
-        const dataString = JSON.stringify(data);
-
-        return dataString;
+        return data;
     }
 
     private processPublicKeyCredentialRequest(
