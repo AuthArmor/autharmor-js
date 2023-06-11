@@ -1,5 +1,5 @@
 export interface IWebAuthnAuthentication {
-    authenticator_response_data: string;
+    authenticator_response_data: object;
     aa_sig: string;
     webauthn_client_id: string;
 }
