@@ -6,6 +6,21 @@ This package allows you to access the client-side SDK for AuthArmor so that you 
 
 > This package does not come with a UI; if you want a pre-made UI that will work with this package and will allow you to get started with very little configuration, check out [autharmor-sdk-ui](https://github.com/AuthArmor/autharmor-jsclient-sdk-ui).
 
+## Installation
+
+This package is available on the NPM registry as `@autharmor/sdk`. Use your project's package manager to install it:
+
+```sh
+# NPM
+npm install @autharmor/sdk
+
+# PNPM
+pnpm add @autharmor/sdk
+
+# Yarn
+yarn add @autharmor/sdk
+```
+
 ## Getting Started
 
 This section will demonstrate how you can set up a client and make requests.
