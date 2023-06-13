@@ -22,3 +22,6 @@ steps:
     pnpm install
     pnpm run build
   displayName: 'Install dependencies and build'
+
+- publish: $(System.DefaultWorkingDirectory)/dist
+  artifact: autharmor-sdk
