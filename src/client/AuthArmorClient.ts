@@ -155,6 +155,7 @@ export class AuthArmorClient {
 
         const result: QrCodeResult<AuthenticationResult> = {
             qrCodeUrl: authSession.qr_code_data,
+            verificationCode: authSession.visual_verify_value || null,
             resultAsync: async () =>
                 await this.pollForAuthenticationResultAsync(
                     authSession.auth_request_id,
@@ -200,6 +201,7 @@ export class AuthArmorClient {
 
         const result: QrCodeResult<AuthenticationResult> = {
             qrCodeUrl: authSession.qr_code_data,
+            verificationCode: authSession.visual_verify_value || null,
             resultAsync: async () =>
                 await this.pollForAuthenticationResultAsync(
                     authSession.auth_request_id,
@@ -338,6 +340,7 @@ export class AuthArmorClient {
 
         const result: QrCodeResult<RegistrationResult> = {
             qrCodeUrl: registrationSession.qr_code_data,
+            verificationCode: null,
             resultAsync: async () =>
                 await this.pollForAuthenticatorRegistrationResultAsync(
                     registrationSession.user_id,
