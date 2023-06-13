@@ -1,5 +1,5 @@
 {
-    "name": "autharmor-sdk",
+    "name": "@autharmor/sdk",
     "version": "4.0.0",
     "type": "module",
     "source": "src/index.ts",
