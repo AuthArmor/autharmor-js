@@ -46,6 +46,11 @@ export class AuthArmorClient {
     private reCaptchaService: IReCaptchaService = null!;
 
     /**
+     * The WebAuthn client ID.
+     */
+    private readonly webAuthnClientId: string | null;
+
+    /**
      * @param configuration The configuration for the client.
      * @param apiClient The API client for making requests to the AuthArmor API.
      * @param nonceGenerator The nonce generator.
@@ -54,13 +59,14 @@ export class AuthArmorClient {
     public constructor(
         configuration: AuthArmorClientConfiguration,
         private readonly apiClient = new AuthArmorApiClient(configuration),
-        private readonly webAuthnClientId: string | null = configuration.webAuthnClientId ?? null,
         private readonly webAuthnService = configuration.webAuthnClientId !== undefined
             ? new WebAuthnService(configuration.webAuthnClientId)
             : null!,
         private readonly nonceGenerator: INonceGenerator = new BrowserNonceGenerator(),
         private readonly systemClock: ISystemClock = new NativeSystemClock()
-    ) {}
+    ) {
+        this.webAuthnClientId = configuration.webAuthnClientId ?? null;
+    }
 
     /**
      * Ensures that the client has been initialized for making requests.
