@@ -10,9 +10,9 @@ import { NativeSystemClock } from "../infrastructure/NativeSystemClock";
 import {
     AuthenticationFailureReason,
     AuthenticationResult,
+    AvailableAuthenticationMethods,
     IAuthenticationFailureResult,
     IAuthenticationSuccessResult,
-    IAvailableAuthenticationMethods,
     IRegistrationFailureResult,
     IRegistrationSuccessResult,
     QrCodeResult,
@@ -107,14 +107,14 @@ export class AuthArmorClient {
      */
     public async getAvailableLogInMethodsAsync(
         username: string
-    ): Promise<IAvailableAuthenticationMethods> {
+    ): Promise<AvailableAuthenticationMethods> {
         await this.ensureInitialized();
 
         const userEnrollments = await this.apiClient.getUserEnrollmentsAsync({ username });
 
         const authMethods = userEnrollments.enrolled_auth_methods.map((m) => m.auth_method_id);
 
-        const result: IAvailableAuthenticationMethods = {
+        const result: AvailableAuthenticationMethods = {
             authenticator: authMethods.includes(ApiModels.AuthMethod.Authenticator),
             emailMagicLink: authMethods.includes(ApiModels.AuthMethod.EmailMagicLink),
             webAuthn: authMethods.includes(ApiModels.AuthMethod.WebAuthn)
@@ -163,7 +163,7 @@ export class AuthArmorClient {
             qrCodeUrl: authSession.qr_code_data,
             verificationCode: authSession.visual_verify_value || null,
             resultAsync: async () =>
-                await this.pollForAuthenticationResultAsync(
+                await this.pollForAuthenticatorAuthenticationResultAsync(
                     authSession.auth_request_id,
                     authSession.auth_validation_token,
                     timeoutSeconds,
@@ -179,7 +179,7 @@ export class AuthArmorClient {
      *
      * @param options The options to use for this request.
      * @param abortSignal The abort signal to use for this request.
-     * 
+     *
      * @returns A promise that resolves with a QR code result for the authentication result.
      */
     public async logInWithAuthenticatorUsernamelessAsync(
@@ -209,7 +209,7 @@ export class AuthArmorClient {
             qrCodeUrl: authSession.qr_code_data,
             verificationCode: authSession.visual_verify_value || null,
             resultAsync: async () =>
-                await this.pollForAuthenticationResultAsync(
+                await this.pollForAuthenticatorAuthenticationResultAsync(
                     authSession.auth_request_id,
                     authSession.auth_validation_token,
                     timeoutSeconds,
@@ -288,10 +288,11 @@ export class AuthArmorClient {
             if (error instanceof WebAuthnRequestDeniedError) {
                 const result: IAuthenticationFailureResult = {
                     requestId: authSession.auth_request_id,
+                    authenticationMethod: "webAuthn",
                     succeeded: false,
                     failureReason: "declined"
                 };
-    
+
                 return result;
             }
 
@@ -308,6 +309,7 @@ export class AuthArmorClient {
         const result: IAuthenticationSuccessResult = {
             succeeded: true,
             requestId: webAuthnResult.auth_request_id,
+            authenticationMethod: "webAuthn",
             validationToken: webAuthnResult.auth_validation_token
         };
 
@@ -452,7 +454,7 @@ export class AuthArmorClient {
     }
 
     /**
-     * Polls the API for the status of an authentication request.
+     * Polls the API for the status of an authenticator authentication request.
      *
      * @param sessionId The ID of the authentication session.
      * @param validationToken The validation token for the authentication session.
@@ -461,7 +463,7 @@ export class AuthArmorClient {
      *
      * @returns A promise that resolves with the authentication result.
      */
-    protected pollForAuthenticationResultAsync(
+    protected pollForAuthenticatorAuthenticationResultAsync(
         sessionId: string,
         validationToken: string,
         timeoutSeconds: number = 60,
@@ -476,6 +478,7 @@ export class AuthArmorClient {
 
                     const result: IAuthenticationFailureResult = {
                         requestId: sessionId,
+                        authenticationMethod: "authenticator",
                         succeeded: false,
                         failureReason: abortSignal?.aborted ? "aborted" : "timedOut"
                     };
@@ -498,6 +501,7 @@ export class AuthArmorClient {
 
                     const result: IAuthenticationSuccessResult = {
                         requestId: sessionId,
+                        authenticationMethod: "authenticator",
                         succeeded: true,
                         validationToken
                     };
@@ -514,6 +518,7 @@ export class AuthArmorClient {
 
                     const result: IAuthenticationFailureResult = {
                         requestId: sessionId,
+                        authenticationMethod: "authenticator",
                         succeeded: false,
                         failureReason
                     };

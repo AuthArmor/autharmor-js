@@ -1,4 +1,4 @@
-import { IAvailableAuthenticationMethods } from "./IAvailableAuthenticationMethods";
+import { AuthenticationMethod, AvailableAuthenticationMethods } from "./AuthenticationMethod";
 import {
     AuthenticationFailureReason,
     AuthenticationResult,
@@ -14,7 +14,8 @@ import {
 import { QrCodeResult } from "./QrCodeResult";
 
 export type {
-    IAvailableAuthenticationMethods,
+    AuthenticationMethod,
+    AvailableAuthenticationMethods,
     AuthenticationResult,
     IAuthenticationSuccessResult,
     AuthenticationFailureReason,

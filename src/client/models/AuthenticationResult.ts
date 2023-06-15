@@ -2,6 +2,7 @@ export type AuthenticationResult = IAuthenticationSuccessResult | IAuthenticatio
 
 export interface IAuthenticationResult {
     requestId: string;
+    authenticationMethod: string;
     succeeded: boolean;
 }
 
