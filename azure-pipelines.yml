@@ -51,6 +51,7 @@ jobs:
 
   - deployment: deploy_to_npm
     displayName: 'Deploy to npm registry'
+    environment: sdk-production
     strategy:
       runOnce:
         deploy:
@@ -64,6 +65,7 @@ jobs:
 
   - deployment: deploy_dev_to_artifacts
     displayName: 'Deploy development package to Azure Artifacts'
+    environment: sdk-development
     strategy:
       runOnce:
         deploy:
