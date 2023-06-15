@@ -23,9 +23,7 @@
         "url": "https://github.com/AuthArmor/autharmor-jsclient-sdk.git"
     },
     "files": [
-        "./dist",
-        "./index.d.ts",
-        "./ui.d.ts"
+        "./dist"
     ],
     "scripts": {
         "build": "rollup --config",
