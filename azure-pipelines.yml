@@ -27,27 +27,15 @@ jobs:
     - script: pnpm run build
       displayName: 'Build package'
 
-    - publish: $(System.DefaultWorkingDirectory)
+    - task: CopyFiles@2
+      displayName: 'Stage artifact files'
+      inputs:
+        contents: dist|package.json|README.md
+        targetFolder: $(Build.ArtifactStagingDirectory)
+
+    - publish: $(Build.ArtifactStagingDirectory)
       artifact: autharmor-sdk
       displayName: 'Publish package'
-
-    - task: DownloadSecureFile@1
-      name: envFile
-      displayName: 'Download development environment file'
-      inputs:
-        secureFile: 'autharmor-sdk.environment.development.ts'
-
-    - script: |
-        rm $(System.DefaultWorkingDirectory)/src/environment/environment.ts
-        mv $(envFile.secureFilePath) $(System.DefaultWorkingDirectory)/src/environment/environment.ts
-      displayName: 'Install development environment file'
-
-    - script: pnpm run build
-      displayName: 'Build development package'
-
-    - publish: $(System.DefaultWorkingDirectory)
-      artifact: autharmor-sdk-dev
-      displayName: 'Publish development package'
 
   - deployment: deploy_to_npm
     displayName: 'Deploy to npm registry'
@@ -62,12 +50,51 @@ jobs:
           - task: Npm@1
             inputs:
               commands: publish
+              workingDir: $(Pipeline.Workspace)
               publishRegistry: useExternalRegistry
               publishEndpoint: 'npm publish connection'
 
+  - job: build_dev_package
+    displayName: 'Build development package'
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '18.x'
+      displayName: 'Install Node.js'
+
+    - script: npm install --global pnpm@latest-8
+      displayName: 'Install pnpm'
+
+    - script: pnpm install
+      displayName: 'Install dependencies'
+
+    - task: DownloadSecureFile@1
+      name: envFile
+      displayName: 'Download development environment file'
+      inputs:
+        secureFile: 'autharmor-sdk.environment.development.ts'
+
+    - script: |
+        rm $(System.DefaultWorkingDirectory)/src/environment/environment.ts
+        mv $(envFile.secureFilePath) $(System.DefaultWorkingDirectory)/src/environment/environment.ts
+      displayName: 'Install development environment file'
+
+    - script: pnpm run build
+      displayName: 'Build package'
+
+    - task: CopyFiles@2
+      displayName: 'Stage artifact files'
+      inputs:
+        contents: dist|package.json|README.md
+        targetFolder: $(Build.ArtifactStagingDirectory)
+
+    - publish: $(Build.ArtifactStagingDirectory)
+      artifact: autharmor-sdk-dev
+      displayName: 'Publish package'
+
   - deployment: deploy_dev_to_artifacts
     displayName: 'Deploy development package to Azure Artifacts'
-    dependsOn: build_package
+    dependsOn: build_dev_package
     environment: sdk-development
     strategy:
       runOnce:
@@ -78,5 +105,6 @@ jobs:
           - task: Npm@1
             inputs:
               commands: publish
+              workingDir: $(Pipeline.Workspace)
               publishRegistry: useFeed
               publishFeed: Auth Armor Samples and SDKs/AuthArmor-Sdk
