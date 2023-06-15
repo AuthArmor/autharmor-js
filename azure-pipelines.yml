@@ -30,7 +30,10 @@ jobs:
     - task: CopyFiles@2
       displayName: 'Stage artifact files'
       inputs:
-        contents: dist|package.json|README.md
+        contents: |
+          dist/**
+          package.json
+          README.md
         targetFolder: $(Build.ArtifactStagingDirectory)
 
     - publish: $(Build.ArtifactStagingDirectory)
@@ -85,7 +88,10 @@ jobs:
     - task: CopyFiles@2
       displayName: 'Stage artifact files'
       inputs:
-        contents: dist|package.json|README.md
+        contents: |
+          dist/**
+          package.json
+          README.md
         targetFolder: $(Build.ArtifactStagingDirectory)
 
     - publish: $(Build.ArtifactStagingDirectory)
