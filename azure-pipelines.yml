@@ -52,7 +52,8 @@ jobs:
             artifact: autharmor-sdk
           - task: Npm@1
             inputs:
-              command: publish
+              command: custom
+              customCommand: publish --access public
               workingDir: $(Pipeline.Workspace)/autharmor-sdk
               publishRegistry: useExternalRegistry
               publishEndpoint: 'npm publish connection'
