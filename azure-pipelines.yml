@@ -9,19 +9,40 @@ trigger:
 pool:
   vmImage: ubuntu-latest
 
-steps:
-- task: NodeTool@0
-  inputs:
-    versionSpec: '18.x'
-  displayName: 'Install Node.js'
+jobs:
+  - job: Build package
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '18.x'
+      displayName: 'Install Node.js'
 
-- script: npm install --global pnpm@latest-8
-  displayName: 'Install pnpm'
+    - script: npm install --global pnpm@latest-8
+      displayName: 'Install pnpm'
 
-- script: |
-    pnpm install
-    pnpm run build
-  displayName: 'Install dependencies and build'
+    - script: pnpm install
+      displayName: 'Install dependencies'
 
-- publish: $(System.DefaultWorkingDirectory)/dist
-  artifact: autharmor-sdk
+    - script: pnpm run build
+      displayName: 'Build package'
+
+    - publish: $(System.DefaultWorkingDirectory)
+      artifact: autharmor-sdk
+
+    - task: DownloadSecureFile@1
+      name: envFile
+      displayName: 'Download development environment file'
+      inputs:
+        secureFile: 'autharmor-sdk.environment.development.ts'
+
+    - script: |
+        rm $(System.DefaultWorkingDirectory)/src/environment/environment.ts
+        mv $(envFile.secureFilePath) $(System.DefaultWorkingDirectory)/src/environment/environment.ts
+      displayName: 'Install development environment file'
+
+    - script: pnpm run build
+      displayName: 'Build development package'
+
+    - publish: $(System.DefaultWorkingDirectory)
+      artifact: autharmor-sdk-dev
+
