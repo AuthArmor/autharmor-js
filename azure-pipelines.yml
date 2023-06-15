@@ -56,7 +56,8 @@ jobs:
       runOnce:
         deploy:
           steps:
-          - download: autharmor-sdk
+          - download: current
+            artifact: autharmor-sdk
           - task: Npm@1
             inputs:
               commands: publish
@@ -70,7 +71,8 @@ jobs:
       runOnce:
         deploy:
           steps:
-          - download: autharmor-sdk-dev
+          - download: current
+            artifact: autharmor-sdk-dev
           - task: Npm@1
             inputs:
               commands: publish
