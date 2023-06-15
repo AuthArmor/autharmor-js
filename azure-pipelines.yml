@@ -10,7 +10,8 @@ pool:
   vmImage: ubuntu-latest
 
 jobs:
-  - job: Build package
+  - job: build_package
+    displayName: 'Build package'
     steps:
     - task: NodeTool@0
       inputs:
