@@ -29,6 +29,7 @@ jobs:
 
     - publish: $(System.DefaultWorkingDirectory)
       artifact: autharmor-sdk
+      displayName: 'Publish package'
 
     - task: DownloadSecureFile@1
       name: envFile
@@ -46,4 +47,30 @@ jobs:
 
     - publish: $(System.DefaultWorkingDirectory)
       artifact: autharmor-sdk-dev
+      displayName: 'Publish development package'
 
+  - deployment: deploy_to_npm
+    displayName: 'Deploy to npm registry'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: autharmor-sdk
+          - task: Npm@1
+            inputs:
+              commands: publish
+              publishRegistry: useExternalRegistry
+              publishEndpoint: 'npm publish connection'
+
+  - deployment: deploy_dev_to_artifacts
+    displayName: 'Deploy development package to Azure Artifacts'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: autharmor-sdk-dev
+          - task: Npm@1
+            inputs:
+              commands: publish
+              publishRegistry: useFeed
+              publishFeed: Auth Armor Samples and SDKs/AuthArmor-Sdk
