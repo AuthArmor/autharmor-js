@@ -58,7 +58,9 @@ export class AuthArmorClient {
      */
     public constructor(
         configuration: AuthArmorClientConfiguration,
-        private readonly apiClient = new AuthArmorApiClient(configuration),
+        private readonly apiClient = new AuthArmorApiClient({
+            clientSdkApiKey: configuration.clientSdkApiKey
+        }),
         private readonly webAuthnService = configuration.webAuthnClientId !== undefined
             ? new WebAuthnService(configuration.webAuthnClientId)
             : null!,

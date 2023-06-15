@@ -1,3 +1,3 @@
-import { AuthArmorApiClientConfiguration } from "./AuthArmorApiClientConfiguration";
+import { IAuthArmorApiClientConfiguration } from "./IAuthArmorApiClientConfiguration";
 
-export type { AuthArmorApiClientConfiguration };
+export type { IAuthArmorApiClientConfiguration };
