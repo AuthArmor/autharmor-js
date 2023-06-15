@@ -25,8 +25,8 @@ import {
     IAuthenticatorRegisterOptions,
     IAuthenticatorUserSpecificLogInOptions,
     IAuthenticatorUsernamelessLogInOptions,
-    IEmailMagicLinkLogInOptions,
-    IEmailMagicLinkRegisterOptions,
+    IMagicLinkEmailLogInOptions,
+    IMagicLinkEmailRegisterOptions,
     IWebAuthnRegisterOptions
 } from "./options";
 import { WebAuthnRequestDeniedError } from "../webAuthn";
@@ -118,7 +118,7 @@ export class AuthArmorClient {
 
         const result: AvailableAuthenticationMethods = {
             authenticator: authMethods.includes(ApiModels.AuthMethod.Authenticator),
-            emailMagicLink: authMethods.includes(ApiModels.AuthMethod.EmailMagicLink),
+            magicLinkEmail: authMethods.includes(ApiModels.AuthMethod.MagicLinkEmail),
             webAuthn: authMethods.includes(ApiModels.AuthMethod.WebAuthn)
         };
 
@@ -236,20 +236,20 @@ export class AuthArmorClient {
      * contain a query string parameter named `auth_validation_token` that can be used to validate
      * the login.
      */
-    public async sendLoginMagicLinkAsync(
+    public async sendLoginMagicLinkEmailAsync(
         emailAddress: string,
         redirectUrl: string,
         {
             actionName = "Log in",
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 300
-        }: Partial<IEmailMagicLinkLogInOptions> = {}
+        }: Partial<IMagicLinkEmailLogInOptions> = {}
     ): Promise<void> {
         await this.ensureInitialized();
 
         const nonce = this.nonceGenerator.generateNonce();
 
-        await this.apiClient.sendMagicLinkForAuthenticationAsync({
+        await this.apiClient.sendMagicLinkEmailForAuthenticationAsync({
             username: emailAddress,
             redirectUrl,
             actionName,
@@ -376,20 +376,20 @@ export class AuthArmorClient {
      * contain a query string parameter named `registration_validation_token` that can be used to
      * validate the registration.
      */
-    public async sendRegisterMagicLinkAsync(
+    public async sendRegisterMagicLinkEmailAsync(
         emailAddress: string,
         redirectUrl: string,
         {
             actionName = "Register",
             shortMessage = "Registration pending, please authorize",
             timeoutSeconds = 300
-        }: Partial<IEmailMagicLinkRegisterOptions> = {}
+        }: Partial<IMagicLinkEmailRegisterOptions> = {}
     ): Promise<void> {
         await this.ensureInitialized();
 
         const nonce = this.nonceGenerator.generateNonce();
 
-        await this.apiClient.sendMagicLinkForRegistrationAsync({
+        await this.apiClient.sendMagicLinkEmailForRegistrationAsync({
             username: emailAddress,
             redirectUrl,
             actionName,

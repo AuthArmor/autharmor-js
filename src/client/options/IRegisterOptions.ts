@@ -7,7 +7,7 @@ export interface IAuthenticatorRegisterOptions extends IRegisterOptions {
     shortMessage: string;
 }
 
-export interface IEmailMagicLinkRegisterOptions extends IRegisterOptions {
+export interface IMagicLinkEmailRegisterOptions extends IRegisterOptions {
     actionName: string;
     shortMessage: string;
 }

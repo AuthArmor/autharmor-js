@@ -18,7 +18,7 @@ import {
     IStartRegistrationRequest,
     IStartAuthenticatorRegistrationRequest,
     IStartWebAuthnRegistrationRequest,
-    IStartMagicLinkRegistrationRequest
+    IStartMagicLinkEmailRegistrationRequest
 } from "./IStartAuthenticationRequest";
 
 export type {
@@ -38,6 +38,6 @@ export type {
     IStartWebAuthnAuthenticationRequest,
     IStartRegistrationRequest,
     IStartAuthenticatorRegistrationRequest,
-    IStartMagicLinkRegistrationRequest,
+    IStartMagicLinkEmailRegistrationRequest as IStartMagicLinkRegistrationRequest,
     IStartWebAuthnRegistrationRequest
 };
