@@ -71,7 +71,7 @@ The object returned will look similar to this (depending on which methods the us
 ```ts
 {
     authenticator: true,
-    emailMagicLink: false,
+    magicLinkEmail: false,
     webAuthn: true
 }
 ```

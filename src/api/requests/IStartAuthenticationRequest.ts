@@ -45,7 +45,7 @@ export interface IStartWebAuthnRegistrationRequest {
     nonce: string;
 }
 
-export interface IStartMagicLinkRegistrationRequest extends IStartRegistrationRequest {
+export interface IStartMagicLinkEmailRegistrationRequest extends IStartRegistrationRequest {
     redirectUrl: string;
 }
 

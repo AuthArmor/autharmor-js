@@ -234,7 +234,7 @@ export class AuthArmorApiClient {
      * The user will be redirected to the URL specified in the `redirectUrl` parameter, which
      * must be registered via the AuthArmor dashboard. The resulting session will be authenticated.
      */
-    public async sendMagicLinkForAuthenticationAsync({
+    public async sendMagicLinkEmailForAuthenticationAsync({
         username,
         redirectUrl,
         actionName,
@@ -346,7 +346,7 @@ export class AuthArmorApiClient {
      * The user will be redirected to the URL specified in the `redirectUrl` parameter, which
      * must be registered via the AuthArmor dashboard. The resulting session will be authenticated.
      */
-    public async sendMagicLinkForRegistrationAsync({
+    public async sendMagicLinkEmailForRegistrationAsync({
         username,
         redirectUrl,
         actionName,

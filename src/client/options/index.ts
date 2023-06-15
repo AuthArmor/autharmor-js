@@ -3,12 +3,12 @@ import {
     IAuthenticatorLogInOptions,
     IAuthenticatorUserSpecificLogInOptions,
     IAuthenticatorUsernamelessLogInOptions,
-    IEmailMagicLinkLogInOptions
+    IMagicLinkEmailLogInOptions
 } from "./ILogInOptions";
 import {
     IRegisterOptions,
     IAuthenticatorRegisterOptions,
-    IEmailMagicLinkRegisterOptions,
+    IMagicLinkEmailRegisterOptions,
     IWebAuthnRegisterOptions,
 } from "./IRegisterOptions";
 
@@ -17,9 +17,9 @@ export type {
     IAuthenticatorLogInOptions,
     IAuthenticatorUserSpecificLogInOptions,
     IAuthenticatorUsernamelessLogInOptions,
-    IEmailMagicLinkLogInOptions,
+    IMagicLinkEmailLogInOptions,
     IRegisterOptions,
     IAuthenticatorRegisterOptions,
-    IEmailMagicLinkRegisterOptions,
+    IMagicLinkEmailRegisterOptions,
     IWebAuthnRegisterOptions
 };

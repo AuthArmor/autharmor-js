@@ -14,7 +14,7 @@ export interface IAuthenticatorUserSpecificLogInOptions extends IAuthenticatorLo
     sendPushNotification: boolean;
 }
 
-export interface IEmailMagicLinkLogInOptions extends ILogInOptions {
+export interface IMagicLinkEmailLogInOptions extends ILogInOptions {
     actionName: string;
     shortMessage: string;
 }

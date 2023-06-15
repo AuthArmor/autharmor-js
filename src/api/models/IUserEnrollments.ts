@@ -8,6 +8,6 @@ export interface IEnrolledAuthMethod {
 
 export enum AuthMethod {
     Authenticator = 4,
-    EmailMagicLink = 20,
+    MagicLinkEmail = 20,
     WebAuthn = 30
 }
