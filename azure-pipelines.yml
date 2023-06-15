@@ -49,7 +49,7 @@ jobs:
             artifact: autharmor-sdk
           - task: Npm@1
             inputs:
-              commands: publish
+              command: publish
               workingDir: $(Pipeline.Workspace)/autharmor-sdk
               publishRegistry: useExternalRegistry
               publishEndpoint: 'npm publish connection'
@@ -104,7 +104,7 @@ jobs:
             artifact: autharmor-sdk-dev
           - task: Npm@1
             inputs:
-              commands: publish
+              command: publish
               workingDir: $(Pipeline.Workspace)/autharmor-sdk-dev
               publishRegistry: useFeed
               publishFeed: Auth Armor Samples and SDKs/AuthArmor-Sdk
