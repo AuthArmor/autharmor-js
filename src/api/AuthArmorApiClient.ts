@@ -1,5 +1,6 @@
+import { environment } from "../environment";
 import { AuthArmorApiRequestSigner } from "./AuthArmorApiRequestSigner";
-import { AuthArmorApiClientConfiguration } from "./config";
+import { IAuthArmorApiClientConfiguration } from "./config";
 import { ApiError } from "./errors";
 import {
     AuthArmorSdkConfiguration,
@@ -41,21 +42,13 @@ export class AuthArmorApiClient {
     private readonly apiBaseUrl: string;
 
     public constructor(
-        configuration: AuthArmorApiClientConfiguration,
+        configuration: IAuthArmorApiClientConfiguration,
         private readonly requestSigner = new AuthArmorApiRequestSigner(
             configuration.clientSdkApiKey
         )
     ) {
         this.clientSdkApiKey = configuration.clientSdkApiKey;
-
-        if (configuration.baseUrl) {
-            this.apiBaseUrl = configuration.baseUrl;
-        } else {
-            this.apiBaseUrl =
-                configuration.environment === "production"
-                    ? "https://auth.autharmor.com"
-                    : "https://auth.autharmor.dev";
-        }
+        this.apiBaseUrl = configuration.baseUrl ?? environment.defaultApiBaseUrl;
     }
 
     /**
