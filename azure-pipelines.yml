@@ -33,6 +33,7 @@ jobs:
         contents: |
           dist/**
           package.json
+          .npmrc
           README.md
         targetFolder: $(Build.ArtifactStagingDirectory)
 
@@ -50,12 +51,11 @@ jobs:
           steps:
           - download: current
             artifact: autharmor-sdk
-          - task: Npm@1
+          - task: npmAuthenticate@0
             inputs:
-              command: publish --access public
-              workingDir: $(Pipeline.Workspace)/autharmor-sdk
-              publishRegistry: useExternalRegistry
-              publishEndpoint: 'npm publish connection'
+              workingFile: $(Pipeline.Workspace)/autharmor-sdk/.npmrc
+              customEndpoint: 'npm publish connection'
+          - script: npm publish --access public
 
   - job: build_dev_package
     displayName: 'Build development package'
@@ -85,12 +85,16 @@ jobs:
     - script: pnpm run build
       displayName: 'Build package'
 
+    - script: mv -f .dev.npmrc .npmrc
+      displayName: 'Use development .npmrc file'
+
     - task: CopyFiles@2
       displayName: 'Stage artifact files'
       inputs:
         contents: |
           dist/**
           package.json
+          .npmrc
           README.md
         targetFolder: $(Build.ArtifactStagingDirectory)
 
@@ -108,9 +112,7 @@ jobs:
           steps:
           - download: current
             artifact: autharmor-sdk-dev
-          - task: Npm@1
+          - task: npmAuthenticate@0
             inputs:
-              command: publish
-              workingDir: $(Pipeline.Workspace)/autharmor-sdk-dev
-              publishRegistry: useFeed
-              publishFeed: Auth Armor Samples and SDKs/AuthArmor-Sdk
+              workingFile: $(Pipeline.Workspace)/autharmor-sdk-dev/.npmrc
+          - script: npm publish
