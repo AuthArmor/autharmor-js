@@ -84,7 +84,7 @@ jobs:
       displayName: 'Install development environment file'
 
     - script: |
-        echo "const fs = require('fs'), pkg = require('./package.json'), npkg = { ...pkg, version: pkg.version + '.internal-dev' }; fs.writeFileSync('_package.json', JSON.stringify(npkg, undefined, 4));" | node
+        echo "const fs = require('fs'), pkg = require('./package.json'), npkg = { ...pkg, version: pkg.version + '.internal-dev' }; fs.writeFileSync('package.json', JSON.stringify(npkg, undefined, 4));" | node
       displayName: 'Append development marker to package version'
 
     - script: pnpm run build
