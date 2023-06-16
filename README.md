@@ -27,7 +27,7 @@ This section will demonstrate how you can set up a client and make requests.
 
 ### Creating the Configuration Object
 
-You will need to create a configuration object of type `AuthArmorClientConfiguration`. At a minimum, you must provide a client SDK API key (`clientSdkApiKey`). You can also provide a WebAuthn client ID (`webAuthnClientId`) if you wish to have WebAuthn support in your client.
+You will need to create a configuration object of type [`AuthArmorClientConfiguration`](./src/client/config/AuthArmorClientConfiguration.ts). At a minimum, you must provide a client SDK API key (`clientSdkApiKey`). You can also provide a WebAuthn client ID (`webAuthnClientId`) if you wish to have WebAuthn support in your client.
 
 ```ts
 const authArmorConfig: AuthArmorClientConfiguration = {
@@ -60,7 +60,7 @@ If the client is already initialized, the method does not do anything.
 
 ### Check Available Log In Methods
 
-To log a user in, in most cases, you must first get their available log in methods. The `getAvailableLogInMethodsAsync` method will return an `IAvailableAuthenticationMethods` object.
+To log a user in, in most cases, you must first get their available log in methods. The `getAvailableLogInMethodsAsync` method will return an [`AvailableAuthenticationMethods`](./src/client/models/AuthenticationMethod.ts) object.
 
 ```ts
 const availableMethods = await authArmorClient.getAvailableLogInMethodsAsync("username");
@@ -99,6 +99,27 @@ if (authenticationResult.succeeded) {
 }
 ```
 
+You can provide a list of options as the second parameter of `logInWithAuthenticatorAsync` like so:
+```ts
+await authArmorClient.logInWithAuthenticatorAsync("username", {
+    sendPushNotification: false,
+    actionName: "Authorize Request",
+    shortMessage: "Authorize your special request"
+});
+```
+
 ### Next Steps
 
 Other log in and registration methods also follow a similar pattern. Refer to the in-code documentation for details on how they work. If you are using an IDE, you will also be able to view the documentation from within your editor.
+
+As a summary, these are the methods available for you:
+
+| **Method**                                | **Options Object**                                                                | **Return Type**                           | **Description**                                                          |
+|-------------------------------------------|-----------------------------------------------------------------------------------|-------------------------------------------|--------------------------------------------------------------------------|
+| `logInWithAuthenticatorAsync`             | [`IAuthenticatorUserSpecificLogInOptions`](./src/client/options/ILogInOptions.ts) | `Promise<QrResult<AuthenticationResult>>` | Logs in a user using their authenticator app.                            |
+| `logInWithAuthenticatorUsernamelessAsync` | [`IAuthenticatorUsernamelessLogInOptions`](./src/client/options/ILogInOptions.ts) | `Promise<QrResult<AuthenticationResult>>` | Logs in a user using an authenticator QR code that is not user-specific. |
+| `logInWithWebAuthnAsync`                  | None                                                                              | `Promise<AuthenticationResult>`           | Logs in a user using WebAuthn.                                           |
+| `sendLoginMagicLinkEmailAsync`            | [`IMagicLinkEmailLogInOptions`](./src/client/options/ILogInOptions.ts)            | `Promise<void>`                           | Sends a login magic link to the user's email address.                    |
+| `registerWithAuthenticatorAsync`          | [`IAuthenticatorRegisterOptions`](./src/client/options/IRegisterOptions.ts)       | `Promise<QrResult<RegistrationResult>>`   | Registers a user using an authenticator QR code.                         |
+| `registerWithWebAuthnAsync`               | [`IWebAuthnRegisterOptions`](./src/client/options/IRegisterOptions.ts)            | `Promise<RegistrationResult>`             | Registers a user using WebAuthn.                                         |
+| `sendRegisterMagicLinkEmailAsync`         | [`IMagicLinkEmailRegisterOptions`](./src/client/options/IRegisterOptions.ts)      | `Promise<void>`                           | Sends a register magic link to the user's email address.                 |
