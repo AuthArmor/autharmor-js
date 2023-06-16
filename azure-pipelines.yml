@@ -56,7 +56,7 @@ jobs:
               workingFile: $(Pipeline.Workspace)/autharmor-sdk/.npmrc
               customEndpoint: 'npm publish connection'
           - script: npm publish --access public
-            workingDirectory: $(Pipeline.Workspace)/autharmor-sdk-dev/
+            workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
 
   - job: build_dev_package
     displayName: 'Build development package'
