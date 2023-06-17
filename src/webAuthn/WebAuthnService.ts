@@ -1,8 +1,8 @@
 import { BrowserBase64Coder } from "../infrastructure/BrowserBase64Coder";
 import { IBase64Coder } from "../infrastructure/IBase64Coder";
 import { WebAuthnRequestDeniedError } from "./errors";
-import { IWebAuthnLogIn, IWebAuthnRegistration } from "./models";
-import { IWebAuthnLogInRequest, IWebAuthnRegistrationRequest } from "./requests";
+import { IWebAuthnAuthentication, IWebAuthnRegistration } from "./models";
+import { IWebAuthnAuthenticateRequest, IWebAuthnRegisterRequest } from "./requests";
 import { IPublicKeyCredentialRequest } from "./requests/IPublicKeyCredentialRequest";
 
 export class WebAuthnService {
@@ -11,24 +11,36 @@ export class WebAuthnService {
         private readonly base64Coder: IBase64Coder = new BrowserBase64Coder()
     ) {}
 
-    public async logInAsync(logInRequest: IWebAuthnLogInRequest): Promise<IWebAuthnLogIn> {
+    public async authenticateAsync(
+        authenticateRequest: IWebAuthnAuthenticateRequest
+    ): Promise<IWebAuthnAuthentication> {
         const jsonOptions = JSON.parse(
-            logInRequest.fido2_json_options
+            authenticateRequest.fido2_json_options
         ) as IPublicKeyCredentialRequest;
         const publicKey = this.processPublicKeyCredentialRequest(jsonOptions);
 
-        const attestation = (await navigator.credentials.get({
-            publicKey
-        })) as PublicKeyCredential;
+        let attestation: PublicKeyCredential | null;
 
-        if (attestation === null) {
-            throw new Error("Login failed!");
+        try {
+            attestation = (await navigator.credentials.get({
+                publicKey
+            })) as PublicKeyCredential | null;
+        } catch (error: unknown) {
+            if (error instanceof DOMException && error.name === "NotAllowedError") {
+                attestation = null;
+            } else {
+                throw error;
+            }
         }
 
-        const result: IWebAuthnLogIn = {
+        if (attestation === null) {
+            throw new WebAuthnRequestDeniedError();
+        }
+
+        const result: IWebAuthnAuthentication = {
             authenticator_response_data: this.getAuthenticatorResponseData(attestation),
-            auth_request_id: logInRequest.auth_request_id,
-            aa_sig: logInRequest.aa_guid,
+            auth_request_id: authenticateRequest.auth_request_id,
+            aa_sig: authenticateRequest.aa_guid,
             webauthn_client_id: this.webAuthnClientId
         };
 
@@ -36,7 +48,7 @@ export class WebAuthnService {
     }
 
     public async registerAsync(
-        registrationRequest: IWebAuthnRegistrationRequest
+        registrationRequest: IWebAuthnRegisterRequest
     ): Promise<IWebAuthnRegistration> {
         const jsonOptions = JSON.parse(
             registrationRequest.fido2_json_options
