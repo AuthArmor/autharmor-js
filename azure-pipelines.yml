@@ -46,6 +46,7 @@ stages:
 
   - stage: deploy
     displayName: 'Deploy to npm'
+    jobs:
     - deployment: deploy_to_npm
       displayName: 'Deploy to npm registry'
       environment: sdk-production
