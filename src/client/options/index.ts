@@ -9,7 +9,7 @@ import {
     IRegisterOptions,
     IAuthenticatorRegisterOptions,
     IMagicLinkEmailRegisterOptions,
-    IWebAuthnRegisterOptions,
+    IWebAuthnRegisterOptions
 } from "./IRegisterOptions";
 
 export type {

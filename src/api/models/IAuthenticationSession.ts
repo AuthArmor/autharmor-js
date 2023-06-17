@@ -14,7 +14,8 @@ export interface IAuthenticatorAuthenticationSession extends IAuthenticationSess
     qr_code_data: string;
 }
 
-export interface IAuthenticatorUsernamelessAuthenticationSession extends IAuthenticatorAuthenticationSession {
+export interface IAuthenticatorUsernamelessAuthenticationSession
+    extends IAuthenticatorAuthenticationSession {
     push_message_sent: false;
 }
 

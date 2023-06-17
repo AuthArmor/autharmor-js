@@ -5,7 +5,6 @@ export interface ICompleteWebAuthnRequest extends ICompleteAuthenticationRequest
     webAuthnClientId: string;
 }
 
-
 export interface ICompleteWebAuthnAuthenticationRequest extends ICompleteWebAuthnRequest {
     authenticatorResponseData: string;
     authRequestId: string;

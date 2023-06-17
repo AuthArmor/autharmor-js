@@ -4,7 +4,7 @@
 export interface IHostNameService {
     /**
      * Gets the current hostname.
-     * 
+     *
      * @returns The current hostname.
      */
     getHostName: () => string;
