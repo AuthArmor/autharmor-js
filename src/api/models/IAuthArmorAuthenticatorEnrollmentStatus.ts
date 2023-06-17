@@ -4,6 +4,4 @@ export interface IAuthArmorAuthenticatorEnrollmentStatus {
     username: string;
 }
 
-type AuthArmorAuthenticatorEnrollmentStatusField =
-    | "not_enrolled_or_not_found"
-    | "enrolled";
+type AuthArmorAuthenticatorEnrollmentStatusField = "not_enrolled_or_not_found" | "enrolled";

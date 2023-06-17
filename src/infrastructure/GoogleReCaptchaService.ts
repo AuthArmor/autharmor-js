@@ -11,7 +11,7 @@ export class GoogleReCaptchaService implements IReCaptchaService {
 
     /**
      * Initializes the ReCaptcha service.
-     * 
+     *
      * @returns A promise that resolves when the service is initialized.
      */
     public async initializeAsync(): Promise<void> {

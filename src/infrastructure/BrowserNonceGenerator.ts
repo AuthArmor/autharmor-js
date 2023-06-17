@@ -6,7 +6,7 @@ import { INonceGenerator } from "./INonceGenerator";
 export class BrowserNonceGenerator implements INonceGenerator {
     /**
      * Generates a nonce.
-     * 
+     *
      * @returns The nonce.
      */
     generateNonce(): string {

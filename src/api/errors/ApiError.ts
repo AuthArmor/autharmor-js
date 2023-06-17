@@ -5,9 +5,7 @@ export class ApiError extends Error {
     public readonly message: string;
     public readonly trackingId: string;
 
-    public constructor(
-        public readonly rawError: IApiError
-    ) {
+    public constructor(public readonly rawError: IApiError) {
         super(`[${rawError.errorCode}] ${rawError.errorMessage}`);
 
         this.statusCode = rawError.errorCode;
