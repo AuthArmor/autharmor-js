@@ -1,7 +1,4 @@
-import {
-    IWebAuthnAuthentication,
-    IWebAuthnLogIn,
-    IWebAuthnRegistration
-} from "./IWebAuthnAuthentication";
+import { IWebAuthnAuthentication } from "./IWebAuthnAuthentication";
+import { IWebAuthnRegistration } from "./IWebAuthnRegistration";
 
-export type { IWebAuthnAuthentication, IWebAuthnLogIn, IWebAuthnRegistration };
+export type { IWebAuthnAuthentication, IWebAuthnRegistration };

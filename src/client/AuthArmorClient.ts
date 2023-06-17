@@ -20,12 +20,12 @@ import {
 } from "./models";
 import { AuthArmorClientConfiguration } from "./config";
 import { WebAuthnService } from "../webAuthn/WebAuthnService";
-import { IWebAuthnLogIn, IWebAuthnRegistration } from "../webAuthn/models";
+import { IWebAuthnAuthentication, IWebAuthnRegistration } from "../webAuthn/models";
 import {
     IAuthenticatorRegisterOptions,
-    IAuthenticatorUserSpecificLogInOptions,
-    IAuthenticatorUsernamelessLogInOptions,
-    IMagicLinkEmailLogInOptions,
+    IAuthenticatorUserSpecificAuthenticateOptions,
+    IAuthenticatorUsernamelessAuthenticateOptions,
+    IMagicLinkEmailAuthenticateOptions,
     IMagicLinkEmailRegisterOptions,
     IWebAuthnRegisterOptions
 } from "./options";
@@ -107,7 +107,7 @@ export class AuthArmorClient {
      *
      * @returns A promise that resolves with the available authentication methods.
      */
-    public async getAvailableLogInMethodsAsync(
+    public async getAvailableAuthenticationMethodsAsync(
         username: string
     ): Promise<AvailableAuthenticationMethods> {
         await this.ensureInitialized();
@@ -126,7 +126,7 @@ export class AuthArmorClient {
     }
 
     /**
-     * Logs in a user using their authenticator app.
+     * Authenticates a user using their authenticator app.
      *
      * @param username The username of the user to log in.
      * @param options The options to use for this request.
@@ -134,7 +134,7 @@ export class AuthArmorClient {
      *
      * @returns A promise that resolves with a QR code result for the authentication result.
      */
-    public async logInWithAuthenticatorAsync(
+    public async authenticateWithAuthenticatorAsync(
         username: string,
         {
             sendPushNotification = true,
@@ -142,7 +142,7 @@ export class AuthArmorClient {
             actionName = "Log in",
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 60
-        }: Partial<IAuthenticatorUserSpecificLogInOptions> = {},
+        }: Partial<IAuthenticatorUserSpecificAuthenticateOptions> = {},
         abortSignal?: AbortSignal
     ): Promise<QrCodeResult<AuthenticationResult>> {
         await this.ensureInitialized();
@@ -177,20 +177,20 @@ export class AuthArmorClient {
     }
 
     /**
-     * Logs in a user using an authenticator QR code that is not user-specific.
+     * Authenticates a user using an authenticator QR code that is not user-specific.
      *
      * @param options The options to use for this request.
      * @param abortSignal The abort signal to use for this request.
      *
      * @returns A promise that resolves with a QR code result for the authentication result.
      */
-    public async logInWithAuthenticatorUsernamelessAsync(
+    public async authenticateWithAuthenticatorUsernamelessAsync(
         {
             useVisualVerify = false,
             actionName = "Log in",
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 60
-        }: Partial<IAuthenticatorUsernamelessLogInOptions> = {},
+        }: Partial<IAuthenticatorUsernamelessAuthenticateOptions> = {},
         abortSignal?: AbortSignal
     ): Promise<QrCodeResult<AuthenticationResult>> {
         await this.ensureInitialized();
@@ -223,7 +223,7 @@ export class AuthArmorClient {
     }
 
     /**
-     * Sends a login magic link to the user's email address.
+     * Sends an authentication magic link to the user's email address.
      *
      * @param emailAddress The email address of the user.
      * @param redirectUrl The URL to redirect to after the user has logged in.
@@ -234,16 +234,16 @@ export class AuthArmorClient {
      * @remarks
      * The user will be redirected to the specified URL after they have logged in. The URL will
      * contain a query string parameter named `auth_validation_token` that can be used to validate
-     * the login.
+     * the authentication.
      */
-    public async sendLoginMagicLinkEmailAsync(
+    public async sendAuthenticateMagicLinkEmailAsync(
         emailAddress: string,
         redirectUrl: string,
         {
             actionName = "Log in",
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 300
-        }: Partial<IMagicLinkEmailLogInOptions> = {}
+        }: Partial<IMagicLinkEmailAuthenticateOptions> = {}
     ): Promise<void> {
         await this.ensureInitialized();
 
@@ -260,13 +260,13 @@ export class AuthArmorClient {
     }
 
     /**
-     * Logs in a user using WebAuthn.
+     * Authenticates a user using WebAuthn.
      *
      * @param username The username of the user.
      *
      * @returns A promise that resolves with the authentication result.
      */
-    public async logInWithWebAuthnAsync(username: string): Promise<AuthenticationResult> {
+    public async authenticateWithWebAuthnAsync(username: string): Promise<AuthenticationResult> {
         if (this.webAuthnClientId === null) {
             throw new Error("This AuthArmorClient was not instantiated with WebAuthn support");
         }
@@ -282,10 +282,10 @@ export class AuthArmorClient {
             nonce
         });
 
-        let logIn: IWebAuthnLogIn;
+        let authentication: IWebAuthnAuthentication;
 
         try {
-            logIn = await this.webAuthnService.logInAsync(authSession);
+            authentication = await this.webAuthnService.authenticateAsync(authSession);
         } catch (error: unknown) {
             if (error instanceof WebAuthnRequestDeniedError) {
                 const result: IAuthenticationFailureResult = {
@@ -302,9 +302,9 @@ export class AuthArmorClient {
         }
 
         const webAuthnResult = await this.apiClient.completeWebAuthnAuthenticationAsync({
-            authenticatorResponseData: JSON.stringify(logIn.authenticator_response_data),
-            authRequestId: logIn.auth_request_id,
-            authArmorSignature: logIn.aa_sig,
+            authenticatorResponseData: JSON.stringify(authentication.authenticator_response_data),
+            authRequestId: authentication.auth_request_id,
+            authArmorSignature: authentication.aa_sig,
             webAuthnClientId: this.webAuthnClientId
         });
 

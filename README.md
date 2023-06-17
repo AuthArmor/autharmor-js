@@ -58,12 +58,12 @@ await authArmorClient.ensureInitialized();
 
 If the client is already initialized, the method does not do anything.
 
-### Check Available Log In Methods
+### Check Available Authentication Methods
 
-To log a user in, in most cases, you must first get their available log in methods. The `getAvailableLogInMethodsAsync` method will return an [`AvailableAuthenticationMethods`](./src/client/models/AuthenticationMethod.ts) object.
+To authenticate a user, in most cases, you must first get their available authentication methods. The `getAvailableAuthenticationMethodsAsync` method will return an [`AvailableAuthenticationMethods`](./src/client/models/AuthenticationMethod.ts) object.
 
 ```ts
-const availableMethods = await authArmorClient.getAvailableLogInMethodsAsync("username");
+const availableMethods = await authArmorClient.getAvailableAuthenticationMethodsAsync("username");
 ```
 
 The object returned will look similar to this (depending on which methods the user has enabled):
@@ -78,12 +78,12 @@ The object returned will look similar to this (depending on which methods the us
 
 If the user was not found, an `ApiError` will be thrown with `statusCode` set to 404.
 
-### Authenticator Log In
+### Authenticator Authentication
 
-To log in a user using their authenticator app, use the `logInWithAuthenticatorAsync` method. It returns a `QrResult` which contains a log in URL which can either be displayed as a QR code, or, on mobile devices, be navigated to on a separate tab to launch the AuthArmor authenticator app or prompt to install it. Calling the `resultAsync` method on the `QrResult` will return the `AuthenticationResult`.
+To authenticate a user using their authenticator app, use the `authenticateWithAuthenticatorAsync` method. It returns a `QrResult` which contains an authentication URL which can either be displayed as a QR code, or, on mobile devices, be navigated to on a separate tab to launch the AuthArmor authenticator app or prompt to install it. Calling the `resultAsync` method on the `QrResult` will return the `AuthenticationResult`.
 
 ```ts
-const qrResult = await authArmorClient.logInWithAuthenticatorAsync("username");
+const qrResult = await authArmorClient.authenticateWithAuthenticatorAsync("username");
 
 // You can generate a QR code using this URL and display it on the page.
 const { qrCodeUrl } = qrResult;
@@ -99,9 +99,9 @@ if (authenticationResult.succeeded) {
 }
 ```
 
-You can provide a list of options as the second parameter of `logInWithAuthenticatorAsync` like so:
+You can provide a list of options as the second parameter of `authenticateWithAuthenticatorAsync` like so:
 ```ts
-await authArmorClient.logInWithAuthenticatorAsync("username", {
+await authArmorClient.authenticateWithAuthenticatorAsync("username", {
     sendPushNotification: false,
     actionName: "Authorize Request",
     shortMessage: "Authorize your special request"
@@ -110,16 +110,16 @@ await authArmorClient.logInWithAuthenticatorAsync("username", {
 
 ### Next Steps
 
-Other log in and registration methods also follow a similar pattern. Refer to the in-code documentation for details on how they work. If you are using an IDE, you will also be able to view the documentation from within your editor.
+Other authentication and registration methods also follow a similar pattern. Refer to the in-code documentation for details on how they work. If you are using an IDE, you will also be able to view the documentation from within your editor.
 
 As a summary, these are the methods available for you:
 
-| **Method**                                | **Options Object**                                                                | **Return Type**                           | **Description**                                                          |
-|-------------------------------------------|-----------------------------------------------------------------------------------|-------------------------------------------|--------------------------------------------------------------------------|
-| `logInWithAuthenticatorAsync`             | [`IAuthenticatorUserSpecificLogInOptions`](./src/client/options/ILogInOptions.ts) | `Promise<QrResult<AuthenticationResult>>` | Logs in a user using their authenticator app.                            |
-| `logInWithAuthenticatorUsernamelessAsync` | [`IAuthenticatorUsernamelessLogInOptions`](./src/client/options/ILogInOptions.ts) | `Promise<QrResult<AuthenticationResult>>` | Logs in a user using an authenticator QR code that is not user-specific. |
-| `logInWithWebAuthnAsync`                  | None                                                                              | `Promise<AuthenticationResult>`           | Logs in a user using WebAuthn.                                           |
-| `sendLoginMagicLinkEmailAsync`            | [`IMagicLinkEmailLogInOptions`](./src/client/options/ILogInOptions.ts)            | `Promise<void>`                           | Sends a login magic link to the user's email address.                    |
-| `registerWithAuthenticatorAsync`          | [`IAuthenticatorRegisterOptions`](./src/client/options/IRegisterOptions.ts)       | `Promise<QrResult<RegistrationResult>>`   | Registers a user using an authenticator QR code.                         |
-| `registerWithWebAuthnAsync`               | [`IWebAuthnRegisterOptions`](./src/client/options/IRegisterOptions.ts)            | `Promise<RegistrationResult>`             | Registers a user using WebAuthn.                                         |
-| `sendRegisterMagicLinkEmailAsync`         | [`IMagicLinkEmailRegisterOptions`](./src/client/options/IRegisterOptions.ts)      | `Promise<void>`                           | Sends a register magic link to the user's email address.                 |
+| **Method**                                       | **Options Object**                                                                              | **Return Type**                           | **Description**                                                                |
+|--------------------------------------------------|-------------------------------------------------------------------------------------------------|-------------------------------------------|--------------------------------------------------------------------------------|
+| `authenticateWithAuthenticatorAsync`             | [`IAuthenticatorUserSpecificAuthenticateOptions`](./src/client/options/IAuthenticateOptions.ts) | `Promise<QrResult<AuthenticationResult>>` | Authenticates a user using their authenticator app.                            |
+| `authenticateWithAuthenticatorUsernamelessAsync` | [`IAuthenticatorUsernamelessAuthenticateOptions`](./src/client/options/IAuthenticateOptions.ts) | `Promise<QrResult<AuthenticationResult>>` | Authenticates a user using an authenticator QR code that is not user-specific. |
+| `authenticateWithWebAuthnAsync`                  | None                                                                                            | `Promise<AuthenticationResult>`           | Authenticates a user using WebAuthn.                                           |
+| `sendAuthenticateMagicLinkEmailAsync`            | [`IMagicLinkEmailAuthenticateOptions`](./src/client/options/IAuthenticateOptions.ts)            | `Promise<void>`                           | Sends an authentication magic link to the user's email address.                |
+| `registerWithAuthenticatorAsync`                 | [`IAuthenticatorRegisterOptions`](./src/client/options/IRegisterOptions.ts)                     | `Promise<QrResult<RegistrationResult>>`   | Registers a user using an authenticator QR code.                               |
+| `registerWithWebAuthnAsync`                      | [`IWebAuthnRegisterOptions`](./src/client/options/IRegisterOptions.ts)                          | `Promise<RegistrationResult>`             | Registers a user using WebAuthn.                                               |
+| `sendRegisterMagicLinkEmailAsync`                | [`IMagicLinkEmailRegisterOptions`](./src/client/options/IRegisterOptions.ts)                    | `Promise<void>`                           | Sends a registration magic link to the user's email address.                   |
