@@ -67,6 +67,7 @@ stages:
 
   - stage: deploy
     displayName: 'Deploy to Azure Artifacts'
+    jobs:
     - deployment: deploy_to_artifacts
       displayName: 'Deploy to Azure Artifcats'
       environment: sdk-development
