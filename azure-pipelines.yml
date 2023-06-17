@@ -9,116 +9,55 @@ trigger:
 pool:
   vmImage: ubuntu-latest
 
-jobs:
-  - job: build_package
+stages:
+  - stage: build
     displayName: 'Build package'
-    steps:
-    - task: NodeTool@0
-      inputs:
-        versionSpec: '18.x'
-      displayName: 'Install Node.js'
-
-    - script: npm install --global pnpm@latest-8
-      displayName: 'Install pnpm'
-
-    - script: pnpm install
-      displayName: 'Install dependencies'
-
-    - script: pnpm run build
+    jobs:
+    - job: build_package
       displayName: 'Build package'
+      steps:
+      - task: NodeTool@0
+        inputs:
+          versionSpec: '18.x'
+        displayName: 'Install Node.js'
 
-    - task: CopyFiles@2
-      displayName: 'Stage artifact files'
-      inputs:
-        contents: |
-          dist/**
-          package.json
-          .npmrc
-          README.md
-        targetFolder: $(Build.ArtifactStagingDirectory)
+      - script: npm install --global pnpm@latest-8
+        displayName: 'Install pnpm'
 
-    - publish: $(Build.ArtifactStagingDirectory)
-      artifact: autharmor-sdk
-      displayName: 'Publish package'
+      - script: pnpm install
+        displayName: 'Install dependencies'
 
-  - deployment: deploy_to_npm
-    displayName: 'Deploy to npm registry'
-    dependsOn: build_package
-    environment: sdk-production
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: autharmor-sdk
-          - task: npmAuthenticate@0
-            inputs:
-              workingFile: $(Pipeline.Workspace)/autharmor-sdk/.npmrc
-              customEndpoint: 'npm publish connection'
-          - script: npm publish --access public
-            workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
+      - script: pnpm run build
+        displayName: 'Build package'
 
-  - job: build_dev_package
-    displayName: 'Build development package'
-    steps:
-    - task: NodeTool@0
-      inputs:
-        versionSpec: '18.x'
-      displayName: 'Install Node.js'
+      - task: CopyFiles@2
+        displayName: 'Stage artifact files'
+        inputs:
+          contents: |
+            dist/**
+            package.json
+            .npmrc
+            README.md
+          targetFolder: $(Build.ArtifactStagingDirectory)
 
-    - script: npm install --global pnpm@latest-8
-      displayName: 'Install pnpm'
+      - publish: $(Build.ArtifactStagingDirectory)
+        artifact: autharmor-sdk
+        displayName: 'Publish package'
 
-    - script: pnpm install
-      displayName: 'Install dependencies'
-
-    - task: DownloadSecureFile@1
-      name: envFile
-      displayName: 'Download development environment file'
-      inputs:
-        secureFile: 'autharmor-sdk.environment.development.ts'
-
-    - script: |
-        rm $(System.DefaultWorkingDirectory)/src/environment/environment.ts
-        mv $(envFile.secureFilePath) $(System.DefaultWorkingDirectory)/src/environment/environment.ts
-      displayName: 'Install development environment file'
-
-    - script: |
-        echo "const fs = require('fs'), pkg = require('./package.json'), npkg = { ...pkg, version: pkg.version + '.internal-dev' }; fs.writeFileSync('package.json', JSON.stringify(npkg, undefined, 4));" | node
-      displayName: 'Append development marker to package version'
-
-    - script: pnpm run build
-      displayName: 'Build package'
-
-    - script: mv -f .dev.npmrc .npmrc
-      displayName: 'Use development .npmrc file'
-
-    - task: CopyFiles@2
-      displayName: 'Stage artifact files'
-      inputs:
-        contents: |
-          dist/**
-          package.json
-          .npmrc
-          README.md
-        targetFolder: $(Build.ArtifactStagingDirectory)
-
-    - publish: $(Build.ArtifactStagingDirectory)
-      artifact: autharmor-sdk-dev
-      displayName: 'Publish package'
-
-  - deployment: deploy_dev_to_artifacts
-    displayName: 'Deploy development package to Azure Artifacts'
-    dependsOn: build_dev_package
-    environment: sdk-development
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - download: current
-            artifact: autharmor-sdk-dev
-          - task: npmAuthenticate@0
-            inputs:
-              workingFile: $(Pipeline.Workspace)/autharmor-sdk-dev/.npmrc
-          - script: npm publish
-            workingDirectory: $(Pipeline.Workspace)/autharmor-sdk-dev/
+  - stage: deploy
+    displayName: 'Deploy to npm'
+    - deployment: deploy_to_npm
+      displayName: 'Deploy to npm registry'
+      environment: sdk-production
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - download: current
+              artifact: autharmor-sdk
+            - task: npmAuthenticate@0
+              inputs:
+                workingFile: $(Pipeline.Workspace)/autharmor-sdk/.npmrc
+                customEndpoint: 'npm publish connection'
+            - script: npm publish --access public
+              workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
