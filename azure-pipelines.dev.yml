@@ -49,6 +49,9 @@ stages:
       - script: pnpm run build
         displayName: 'Build package'
 
+      - script: mv -f .dev.npmrc .npmrc
+        displayName: 'Install development .npmrc file'
+
       - task: CopyFiles@2
         displayName: 'Stage artifact files'
         inputs:
@@ -67,7 +70,7 @@ stages:
     displayName: 'Deploy to Azure Artifacts'
     jobs:
     - deployment: deploy_to_artifacts
-      displayName: 'Deploy to Azure Artifcats'
+      displayName: 'Deploy to Azure Artifacts'
       environment: sdk-development
       strategy:
         runOnce:
