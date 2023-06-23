@@ -21,6 +21,18 @@ pnpm add @autharmor/sdk
 yarn add @autharmor/sdk
 ```
 
+In projects without an NPM package manager, we also serve anv IIFE bundle from our CDN which you can load as follows.
+
+```html
+<script src="https://cdn.autharmor.com/scripts/autharmor-jsclient-sdk/v4.0.0/autharmor-sdk.js"></script>
+```
+
+This module's exports will then be available in the `authArmor` global variable. Instead of `import` statements, you can use destructuring:
+
+```js
+const { AuthArmorClient } = authArmor;
+```
+
 ## Getting Started
 
 This section will demonstrate how you can set up a client and make requests.
@@ -36,6 +48,13 @@ const authArmorConfig: AuthArmorClientConfiguration = {
 };
 ```
 
+> If you're using TypeScript, you must import `AuthArmorClientConfiguration` at the top of your file:
+> ```ts
+> import { AuthArmorClientConfiguration } from "@autharmor/sdk";
+> ```
+>
+> If you're not using TypeScript, you must omit the `: AuthArmorClientConfiguration` type annotation.
+
 ### Instantiating a Client
 
 Once you have the configuration object prepared, you can instantiate `AuthArmorClient` passing it the configuration as a parameter:
@@ -43,6 +62,11 @@ Once you have the configuration object prepared, you can instantiate `AuthArmorC
 ```ts
 const authArmorClient = new AuthArmorClient(authArmorConfig);
 ```
+
+> You must import `AuthArmorClient` at the top of your file:
+> ```ts
+> import { AuthArmorClient } from "@autharmor/sdk";
+> ```
 
 This client contains all the methods necessary to make requests to AuthArmor.
 
