@@ -1,8 +1,10 @@
+import { AuthenticationMethod } from "./AuthenticationMethod";
+
 export type AuthenticationResult = IAuthenticationSuccessResult | IAuthenticationFailureResult;
 
 export interface IAuthenticationResult {
     requestId: string;
-    authenticationMethod: string;
+    authenticationMethod: AuthenticationMethod;
     succeeded: boolean;
 }
 
