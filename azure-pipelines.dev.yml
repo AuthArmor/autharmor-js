@@ -106,7 +106,7 @@ stages:
                 scriptLocation: inlineScript
                 inlineScript: |
                   az storage blob upload-batch \
-                    --source-path "$(Pipeline.Workspace)/autharmor-sdk/dist/" \
+                    --source "$(Pipeline.Workspace)/autharmor-sdk/dist/" \
                     --account-name dvdtstscripts \
                     --destination scripts \
                     --destination-path autharmor-js
