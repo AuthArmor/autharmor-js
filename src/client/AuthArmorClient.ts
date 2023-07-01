@@ -232,9 +232,9 @@ export class AuthArmorClient {
      * @returns A promise that resolves when the magic link has been sent.
      *
      * @remarks
-     * The user will be redirected to the specified URL after they have logged in. The URL will
-     * contain a query string parameter named `auth_validation_token` that can be used to validate
-     * the authentication.
+     * The user will be redirected to the specified URL after they have logged in. The validation
+     * token and request ID will be added as query parameters with the names
+     * `auth_validation_token` and `auth_request_id` respectively.
      */
     public async sendAuthenticateMagicLinkEmailAsync(
         emailAddress: string,
