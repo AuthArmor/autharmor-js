@@ -109,6 +109,7 @@ stages:
                   )
                 " | node
               displayName: 'Append development marker to package version'
+              workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/              
             - task: AzureCLI@2
               inputs:
                 azureSubscription: 'Auth Armor Azure Dev Subscription'
