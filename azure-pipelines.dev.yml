@@ -101,8 +101,12 @@ stages:
               artifact: autharmor-sdk
             - task: AzureCLI@2
               inputs:
-                sourcePath: '$(Pipeline.Workspace)/autharmor-sdk/dist/'
                 azureSubscription: 'Auth Armor Azure Dev Subscription'
                 scriptType: bash
                 scriptLocation: inlineScript
-                inlineScript: az storage blob upload-batch --account-name dvdtstscripts --destination scripts --destination-path autharmor-js
+                inlineScript: |
+                  az storage blob upload-batch \
+                    --source-path "$(Pipeline.Workspace)/autharmor-sdk/dist/" \
+                    --account-name dvdtstscripts \
+                    --destination scripts \
+                    --destination-path autharmor-js
