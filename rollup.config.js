@@ -16,7 +16,7 @@ export default defineConfig({
     input: "src/index.ts",
     output: [
         {
-            file: "dist/esm/index.js",
+            file: "dist/esm/auth.js",
             format: "esm"
         },
         {
@@ -24,7 +24,7 @@ export default defineConfig({
             format: "cjs"
         },
         {
-            file: "dist/global/index.js",
+            file: "dist/global/autharmor.js",
             format: "iife",
             name: "authArmor"
         }
