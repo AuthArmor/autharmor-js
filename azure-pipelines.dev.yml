@@ -63,7 +63,7 @@ stages:
         artifact: autharmor-sdk
         displayName: 'Publish package'
 
-  - stage: deploy
+  - stage: deployNPMPackageToArticacts
     displayName: 'Deploy to Azure Artifacts'
     jobs:
     - deployment: deploy_to_artifacts
@@ -80,6 +80,18 @@ stages:
                 workingFile: $(Pipeline.Workspace)/autharmor-sdk/.npmrc
             - script: npm publish
               workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
+  - stage: DeployScriptsToStorage
+    displayName: 'Deploy to Azure Storage'
+    jobs:
+    - deployment: deploy_to_storage
+      displayName: 'Deploy To Azure Storage'
+      environment: sdk-development
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - download: current
+              artifact: autharmor-sdk
             - task: CopyToStorage@5
               inputs:
                 SourcePath: '$(Pipeline.Workspace)/autharmor-sdk/dist/global/*'
