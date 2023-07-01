@@ -99,6 +99,16 @@ stages:
             steps:
             - download: current
               artifact: autharmor-sdk
+            - script: |
+                echo "
+                  console.log(
+                    '##vso[task.setvariable variable=PackageVersion;]'
+                    + require('./package.json').version
+                    + '.$(Build.SourceBranchName)-'
+                    + '$(Build.SourceVersion)'.slice(0, 8)
+                  )
+                " | node
+              displayName: 'Append development marker to package version'
             - task: AzureCLI@2
               inputs:
                 azureSubscription: 'Auth Armor Azure Dev Subscription'
@@ -106,7 +116,7 @@ stages:
                 scriptLocation: inlineScript
                 inlineScript: |
                   az storage blob upload-batch \
-                    --source "$(Pipeline.Workspace)/autharmor-sdk/dist/" \
+                    --source-path "$(Pipeline.Workspace)/autharmor-sdk/dist/" \
                     --account-name dvdtstscripts \
                     --destination scripts \
-                    --destination-path autharmor-js
+                    --destination-path autharmor-js/$(PackageVersion)
