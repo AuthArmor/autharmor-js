@@ -69,6 +69,7 @@ stages:
 
   - stage: deploy
     displayName: 'Deploy to Azure Artifacts'
+    dependsOn: build
     jobs:
     - deployment: deploy_to_artifacts
       displayName: 'Deploy to Azure Artifacts'
@@ -87,6 +88,7 @@ stages:
 
   - stage: deploy_storage
     displayName: 'Deploy to Azure Storage'
+    dependsOn: build
     jobs:
     - deployment: deploy_to_storage
       displayName: 'Deploy to Azure Storage'
