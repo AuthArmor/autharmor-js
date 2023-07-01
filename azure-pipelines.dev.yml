@@ -67,7 +67,7 @@ stages:
         artifact: autharmor-sdk
         displayName: 'Publish package'
 
-  - stage: DeployNPMToArtifacts
+  - stage: deploy
     displayName: 'Deploy to Azure Artifacts'
     jobs:
     - deployment: deploy_to_artifacts
@@ -84,11 +84,12 @@ stages:
                 workingFile: $(Pipeline.Workspace)/autharmor-sdk/.npmrc
             - script: npm publish
               workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
-  - stage: DeployScriptsToStorage
+
+  - stage: deploy_storage
     displayName: 'Deploy to Azure Storage'
     jobs:
     - deployment: deploy_to_storage
-      displayName: 'Deploy To Azure Storage'
+      displayName: 'Deploy to Azure Storage'
       environment: sdk-development
       strategy:
         runOnce:
@@ -96,11 +97,10 @@ stages:
             steps:
             - download: current
               artifact: autharmor-sdk
-            - task: CopyToStorage@5
+            - task: AzureCLI@2
               inputs:
-                SourcePath: '$(Pipeline.Workspace)/autharmor-sdk/dist/global/*'
+                sourcePath: '$(Pipeline.Workspace)/autharmor-sdk/dist/'
                 azureSubscription: 'Auth Armor - DevTest(963fa6c7-25a0-4de6-80be-c1033b48f90c)'
-                Destination: 'AzureBlob'
-                storage: 'dvdtstscripts'
-                ContainerName: 'scripts'
-                BlobPrefix: 'autharmor-js'
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: az storage blob upload-batch --account-name dvdtstscripts --destination scripts --destination-path autharmor-js
