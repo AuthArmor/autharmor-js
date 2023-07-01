@@ -102,7 +102,7 @@ stages:
             - task: AzureCLI@2
               inputs:
                 sourcePath: '$(Pipeline.Workspace)/autharmor-sdk/dist/'
-                azureSubscription: 'Auth Armor - DevTest(963fa6c7-25a0-4de6-80be-c1033b48f90c)'
+                azureSubscription: 'Auth Armor Azure Dev Subscription'
                 scriptType: bash
                 scriptLocation: inlineScript
                 inlineScript: az storage blob upload-batch --account-name dvdtstscripts --destination scripts --destination-path autharmor-js
