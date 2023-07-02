@@ -78,7 +78,7 @@ stages:
               artifact: autharmor-sdk        
             - task: AzureCLI@2
               inputs:
-                azureSubscription: 'Auth Armor Prod'
+                azureSubscription: 'Auth Armor Azure Prod Subscription'
                 scriptType: bash
                 scriptLocation: inlineScript
                 inlineScript: |
