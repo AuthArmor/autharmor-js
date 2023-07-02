@@ -100,7 +100,7 @@ stages:
             - download: current
               artifact: autharmor-sdk
             - script: echo "console.log('##vso[task.setvariable variable=PackageVersion;]' + require('./package.json').version)" | node
-              displayName: 'Append development marker to package version'
+              displayName: 'Extract package version'
               workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/              
             - task: AzureCLI@2
               inputs:

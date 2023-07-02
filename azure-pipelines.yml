@@ -62,3 +62,28 @@ stages:
                 customEndpoint: 'npm publish connection'
             - script: npm publish --access public
               workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
+
+  - stage: deploy_storage
+    displayName: 'Deploy to Azure Storage'
+    dependsOn: build
+    jobs:
+    - deployment: deploy_to_storage
+      displayName: 'Deploy to Azure Storage'
+      environment: sdk-production
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+            - download: current
+              artifact: autharmor-sdk        
+            - task: AzureCLI@2
+              inputs:
+                azureSubscription: 'Auth Armor Prod'
+                scriptType: bash
+                scriptLocation: inlineScript
+                inlineScript: |
+                  az storage blob upload-batch \
+                    --source "$(Pipeline.Workspace)/autharmor-sdk/dist/" \
+                    --account-name cdnstroageaarmor \
+                    --destination scripts \
+                    --destination-path autharmor-js/$(PackageVersion)
