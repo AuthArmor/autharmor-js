@@ -13,8 +13,7 @@
             "browser": "./dist/esm/index.js",
             "node": "./dist/cjs/index.cjs",
             "require": "./dist/cjs/index.cjs"
-        },
-        "./index.css": "./dist/esm/index.css"
+        }
     },
     "license": "MIT",
     "homepage": "https://github.com/AuthArmor/autharmor-jsclient-sdk#readme",
