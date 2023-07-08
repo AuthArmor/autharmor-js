@@ -16,7 +16,7 @@ export default defineConfig({
     input: "src/index.ts",
     output: [
         {
-            file: "dist/esm/auth.js",
+            file: "dist/esm/index.js",
             format: "esm"
         },
         {
