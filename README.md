@@ -1,8 +1,8 @@
-# AuthArmor JavaScript Client-Side SDK
+# Auth Armor JavaScript Client-Side SDK
 
-AuthArmor provides a SaaS solution to authenticate your users exclusively using passwordless authentication methods such as WebAuthn, magic links and the proprietary AuthArmor mobile app.
+Auth Armor provides a SaaS solution to authenticate your users exclusively using passwordless authentication methods such as WebAuthn, magic links and the proprietary Auth Armor mobile app.
 
-This package allows you to access the client-side SDK for AuthArmor so that you can authenticate users on the client side and get a validation token whose legitimacy you can verify server-side and so you can register users using any of the supported methods you would like to offer.
+This package allows you to access the client-side SDK for Auth Armor so that you can authenticate users on the client side and get a validation token whose legitimacy you can verify server-side and so you can register users using any of the supported methods you would like to offer.
 
 > This package does not come with a UI; if you want a pre-made UI that will work with this package and will allow you to get started with very little configuration, check out [autharmor-sdk-ui](https://github.com/AuthArmor/autharmor-jsclient-sdk-ui).
 
@@ -68,7 +68,7 @@ const authArmorClient = new AuthArmorClient(authArmorConfig);
 > import { AuthArmorClient } from "@autharmor/sdk";
 > ```
 
-This client contains all the methods necessary to make requests to AuthArmor.
+This client contains all the methods necessary to make requests to Auth Armor.
 
 ### Initializing the Client
 
@@ -104,7 +104,7 @@ If the user was not found, an `ApiError` will be thrown with `statusCode` set to
 
 ### Authenticator Authentication
 
-To authenticate a user using their authenticator app, use the `authenticateWithAuthenticatorAsync` method. It returns a `QrResult` which contains an authentication URL which can either be displayed as a QR code, or, on mobile devices, be navigated to on a separate tab to launch the AuthArmor authenticator app or prompt to install it. Calling the `resultAsync` method on the `QrResult` will return the `AuthenticationResult`.
+To authenticate a user using their authenticator app, use the `authenticateWithAuthenticatorAsync` method. It returns a `QrResult` which contains an authentication URL which can either be displayed as a QR code, or, on mobile devices, be navigated to on a separate tab to launch the Auth Armor authenticator app or prompt to install it. Calling the `resultAsync` method on the `QrResult` will return the `AuthenticationResult`.
 
 ```ts
 const qrResult = await authArmorClient.authenticateWithAuthenticatorAsync("username");
