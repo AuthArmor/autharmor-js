@@ -21,7 +21,7 @@ pnpm add @autharmor/sdk
 yarn add @autharmor/sdk
 ```
 
-In projects without an NPM package manager, we also serve anv IIFE bundle from our CDN which you can load as follows.
+In projects without an NPM package manager, we also serve an IIFE bundle from our CDN which you can load as follows.
 
 ```html
 <script src="https://cdn.autharmor.com/scripts/autharmor-jsclient-sdk/v4.0.0/autharmor-sdk.js"></script>
