@@ -245,7 +245,7 @@ export class AuthArmorApiClient {
         nonce
     }: IStartMagicLinkAuthenticationRequest): Promise<IMagicLinkAuthenticationSession> {
         return await this.fetchAsync<IMagicLinkAuthenticationSession>(
-            "/api/v3/auth/request/magicLink/start",
+            "/api/v3/auth/request/magiclink/start",
             "post",
             {
                 username,
