@@ -24,7 +24,7 @@ export default defineConfig({
             format: "cjs"
         },
         {
-            file: "dist/global/autharmor.js",
+            file: "dist/global/autharmor-js.js",
             format: "iife",
             name: "authArmor"
         }
