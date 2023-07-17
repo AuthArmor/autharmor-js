@@ -4,27 +4,27 @@ Auth Armor provides a SaaS solution to authenticate your users exclusively using
 
 This package allows you to access the client-side SDK for Auth Armor so that you can authenticate users on the client side and get a validation token whose legitimacy you can verify server-side and so you can register users using any of the supported methods you would like to offer.
 
-> This package does not come with a UI; if you want a pre-made UI that will work with this package and will allow you to get started with very little configuration, check out [autharmor-sdk-ui](https://github.com/AuthArmor/autharmor-jsclient-sdk-ui).
+> This package does not come with a UI; if you want a pre-made UI that will work with this package and will allow you to get started with very little configuration, check out [autharmor-js-ui](https://github.com/AuthArmor/autharmor-js-ui).
 
 ## Installation
 
-This package is available on the NPM registry as `@autharmor/sdk`. Use your project's package manager to install it:
+This package is available on the NPM registry as `@autharmor/autharmor-js`. Use your project's package manager to install it:
 
 ```sh
 # NPM
-npm install @autharmor/sdk
+npm install @autharmor/autharmor-js
 
 # PNPM
-pnpm add @autharmor/sdk
+pnpm add @autharmor/autharmor-js
 
 # Yarn
-yarn add @autharmor/sdk
+yarn add @autharmor/autharmor-js
 ```
 
 In projects without an NPM package manager, we also serve an IIFE bundle from our CDN which you can load as follows.
 
 ```html
-<script src="https://cdn.autharmor.com/scripts/autharmor-jsclient-sdk/v4.0.0/autharmor-sdk.js"></script>
+<script src="https://cdn.autharmor.com/scripts/autharmor-js/4.0.0-alpha.9/global/autharmor-js.js"></script>
 ```
 
 This module's exports will then be available in the `authArmor` global variable. Instead of `import` statements, you can use destructuring:
