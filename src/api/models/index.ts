@@ -7,6 +7,10 @@ import {
     IAuthenticationRequestStatus
 } from "./IAuthenticationRequestStatus";
 import {
+    IRegistrationRequestStatus,
+    RegistrationRequestStatusCode
+} from "./IRegistrationRequestStatus";
+import {
     IAuthenticationResult,
     IWebAuthnAuthenticationResult,
     IWebAuthnRegistrationResult
@@ -31,6 +35,7 @@ export type {
     IAuthArmorAuthenticatorEnrollmentStatus,
     AuthArmorSdkConfiguration,
     IAuthenticationRequestStatus,
+    IRegistrationRequestStatus,
     IAuthenticationResult,
     IWebAuthnAuthenticationResult,
     IWebAuthnRegistrationResult,
@@ -47,4 +52,9 @@ export type {
     IEnrolledAuthMethod
 };
 
-export { AuthenticationRequestStatusId, AuthenticationRequestCode, AuthMethod };
+export {
+    AuthenticationRequestStatusId,
+    AuthenticationRequestCode,
+    AuthMethod,
+    RegistrationRequestStatusCode
+};

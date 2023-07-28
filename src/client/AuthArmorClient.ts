@@ -353,7 +353,8 @@ export class AuthArmorClient {
             verificationCode: null,
             resultAsync: async () =>
                 await this.pollForAuthenticatorRegistrationResultAsync(
-                    registrationSession.user_id,
+                    registrationSession.registration_id,
+                    registrationSession.registration_validation_token,
                     timeoutSeconds,
                     abortSignal
                 )
@@ -432,6 +433,7 @@ export class AuthArmorClient {
             registration = await this.webAuthnService.registerAsync(registrationSession);
         } catch {
             const result: IRegistrationFailureResult = {
+                registrationId: registrationSession.registration_id,
                 succeeded: false,
                 failureReason: "unknown"
             };
@@ -447,9 +449,9 @@ export class AuthArmorClient {
         });
 
         const result: IRegistrationSuccessResult = {
+            registrationId: registrationSession.registration_id,
             succeeded: true,
-            userId: webAuthnResult.user_id,
-            username: webAuthnResult.username ?? username
+            validationToken: webAuthnResult.registration_validation_token
         };
 
         return result;
@@ -541,7 +543,8 @@ export class AuthArmorClient {
      * @returns A promise that resolves with the registration result.
      */
     protected pollForAuthenticatorRegistrationResultAsync(
-        userId: string,
+        registrationId: string,
+        validationToken: string,
         timeoutSeconds: number = 60,
         abortSignal?: AbortSignal
     ): Promise<RegistrationResult> {
@@ -553,6 +556,7 @@ export class AuthArmorClient {
                     clearInterval(interval);
 
                     const result: IRegistrationFailureResult = {
+                        registrationId,
                         succeeded: false,
                         failureReason: abortSignal?.aborted ? "aborted" : "timedOut"
                     };
@@ -562,20 +566,71 @@ export class AuthArmorClient {
                     return;
                 }
 
-                const enrollmentStatus = await this.apiClient.getAuthenticatorEnrollmentStatusAsync(
-                    { userId }
-                );
+                const registrationSessionStatus =
+                    await this.apiClient.getRegistrationSessionStatusAsync({
+                        registrationId
+                    });
 
-                if (enrollmentStatus.authenticator_enrollment_status === "enrolled") {
+                if (
+                    registrationSessionStatus.registration_status_code ===
+                        ApiModels.RegistrationRequestStatusCode.PendingValidation ||
+                    registrationSessionStatus.registration_status_code ===
+                        ApiModels.RegistrationRequestStatusCode.Registered
+                ) {
                     clearInterval(interval);
 
                     const result: IRegistrationSuccessResult = {
+                        registrationId,
                         succeeded: true,
-                        userId: enrollmentStatus.user_id,
-                        username: enrollmentStatus.username
+                        validationToken
                     };
 
                     resolve(result);
+                } else if (
+                    registrationSessionStatus.registration_status_code ===
+                    ApiModels.RegistrationRequestStatusCode.Declined
+                ) {
+                    clearInterval(interval);
+
+                    const result: IRegistrationFailureResult = {
+                        registrationId,
+                        succeeded: false,
+                        failureReason: "declined"
+                    };
+
+                    resolve(result);
+
+                    return;
+                } else if (
+                    registrationSessionStatus.registration_status_code ===
+                    ApiModels.RegistrationRequestStatusCode.Timeout
+                ) {
+                    clearInterval(interval);
+
+                    const result: IRegistrationFailureResult = {
+                        registrationId,
+                        succeeded: false,
+                        failureReason: "timedOut"
+                    };
+
+                    resolve(result);
+
+                    return;
+                } else if (
+                    registrationSessionStatus.registration_status_code !==
+                    ApiModels.RegistrationRequestStatusCode.PendingUserAcceptance
+                ) {
+                    clearInterval(interval);
+
+                    const result: IRegistrationFailureResult = {
+                        registrationId,
+                        succeeded: false,
+                        failureReason: "unknown"
+                    };
+
+                    resolve(result);
+
+                    return;
                 }
             }, 1000);
         });

@@ -1,14 +1,18 @@
 export type RegistrationResult = IRegistrationSuccessResult | IRegistrationFailureResult;
 
-export interface IRegistrationSuccessResult {
-    succeeded: true;
-    userId: string;
-    username: string;
+export interface IRegistrationResult {
+    registrationId: string;
+    succeeded: boolean;
 }
 
-export interface IRegistrationFailureResult {
+export interface IRegistrationSuccessResult extends IRegistrationResult {
+    succeeded: true;
+    validationToken: string;
+}
+
+export interface IRegistrationFailureResult extends IRegistrationResult {
     succeeded: false;
     failureReason: RegistrationFailureReason;
 }
 
-export type RegistrationFailureReason = "timedOut" | "aborted" | "unknown";
+export type RegistrationFailureReason = "timedOut"| "declined" | "aborted" | "unknown";

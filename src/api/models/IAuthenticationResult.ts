@@ -8,4 +8,6 @@ export interface IWebAuthnAuthenticationResult extends IAuthenticationResult {
     auth_request_id: string;
 }
 
-export interface IWebAuthnRegistrationResult extends IAuthenticationResult {}
+export interface IWebAuthnRegistrationResult extends IAuthenticationResult {
+    registration_validation_token: string;
+}
