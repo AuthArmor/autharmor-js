@@ -57,7 +57,7 @@ export class AuthArmorApiClient {
      * Retrieves the configuration for the SDK.
      */
     public async getSdkConfigurationAsync({}: IGetSdkConfigurationRequest = {}): Promise<AuthArmorSdkConfiguration> {
-        return await this.fetchAsync<AuthArmorSdkConfiguration>("/api/v3.1/config/sdkinit");
+        return await this.fetchAsync<AuthArmorSdkConfiguration>("/api/v4/config/sdkinit");
     }
 
     /**
@@ -71,7 +71,7 @@ export class AuthArmorApiClient {
         const userId = "00000000-0000-0000-0000-000000000000";
 
         return await this.fetchAsync<IUserEnrollments>(
-            `/api/v3.1/users/${userId}/enrolledmethods`,
+            `/api/v4/users/${userId}/enrolledmethods`,
             "post",
             {
                 username_or_email_address: username
@@ -90,7 +90,7 @@ export class AuthArmorApiClient {
         sessionId
     }: IGetAuthenticationSessionStatusRequest): Promise<IAuthenticationRequestStatus> {
         return await this.fetchAsync<IAuthenticationRequestStatus>(
-            `/api/v3.1/auth/request/status/${sessionId}`
+            `/api/v4/auth/request/status/${sessionId}`
         );
     }
 
@@ -105,7 +105,7 @@ export class AuthArmorApiClient {
         registrationId
     }: IGetRegistrationSessionStatusRequest): Promise<IRegistrationRequestStatus> {
         return await this.fetchAsync<IRegistrationRequestStatus>(
-            `/api/v3.1/users/registration/${registrationId}`
+            `/api/v4/users/registration/${registrationId}`
         );
     }
 
@@ -130,7 +130,7 @@ export class AuthArmorApiClient {
         nonce
     }: IStartAuthenticatorUserSpecificAuthenticationRequest): Promise<IAuthenticatorAuthenticationSession> {
         return await this.fetchAsync<IAuthenticatorAuthenticationSession>(
-            "/api/v3.1/auth/request/authenticator/start",
+            "/api/v4/auth/request/authenticator/start",
             "post",
             {
                 username,
@@ -163,7 +163,7 @@ export class AuthArmorApiClient {
         nonce
     }: IStartAuthenticatorUsernamelessAuthenticationRequest): Promise<IAuthenticatorUsernamelessAuthenticationSession> {
         return await this.fetchAsync<IAuthenticatorUsernamelessAuthenticationSession>(
-            "/api/v3.1/auth/request/authenticator/start",
+            "/api/v4/auth/request/authenticator/start",
             "post",
             {
                 send_push: false,
@@ -194,7 +194,7 @@ export class AuthArmorApiClient {
         nonce
     }: IStartWebAuthnAuthenticationRequest): Promise<IWebAuthnAuthenticationSession> {
         return await this.fetchAsync<IWebAuthnAuthenticationSession>(
-            "/api/v3.1/auth/request/webauthn/start",
+            "/api/v4/auth/request/webauthn/start",
             "post",
             {
                 username,
@@ -217,7 +217,7 @@ export class AuthArmorApiClient {
         webAuthnClientId
     }: ICompleteWebAuthnAuthenticationRequest): Promise<IWebAuthnAuthenticationResult> {
         return await this.fetchAsync<IWebAuthnAuthenticationResult>(
-            "/api/v3.1/auth/request/webauthn/finish",
+            "/api/v4/auth/request/webauthn/finish",
             "post",
             {
                 authenticator_response_data: authenticatorResponseData,
@@ -246,7 +246,7 @@ export class AuthArmorApiClient {
         nonce
     }: IStartMagicLinkAuthenticationRequest): Promise<IMagicLinkAuthenticationSession> {
         return await this.fetchAsync<IMagicLinkAuthenticationSession>(
-            "/api/v3.1/auth/request/magiclink/start",
+            "/api/v4/auth/request/magiclink/start",
             "post",
             {
                 username,
@@ -275,7 +275,7 @@ export class AuthArmorApiClient {
         nonce
     }: IStartAuthenticatorRegistrationRequest): Promise<IAuthenticatorRegistrationSession> {
         return await this.fetchAsync<IAuthenticatorRegistrationSession>(
-            "/api/v3.1/users/register/authenticator/start",
+            "/api/v4/users/register/authenticator/start",
             "post",
             {
                 username,
@@ -304,7 +304,7 @@ export class AuthArmorApiClient {
         nonce
     }: IStartWebAuthnRegistrationRequest): Promise<IWebAuthnRegistrationSession> {
         return await this.fetchAsync<IWebAuthnRegistrationSession>(
-            "/api/v3.1/users/register/webauthn/start",
+            "/api/v4/users/register/webauthn/start",
             "post",
             {
                 username,
@@ -327,7 +327,7 @@ export class AuthArmorApiClient {
         webAuthnClientId
     }: ICompleteWebAuthnRegistrationRequest): Promise<IWebAuthnRegistrationResult> {
         return await this.fetchAsync<IWebAuthnRegistrationResult>(
-            "/api/v3.1/users/register/webauthn/finish",
+            "/api/v4/users/register/webauthn/finish",
             "post",
             {
                 authenticator_response_data: authenticatorResponseData,
@@ -357,7 +357,7 @@ export class AuthArmorApiClient {
         nonce
     }: IStartMagicLinkRegistrationRequest): Promise<IMagicLinkRegistrationSession> {
         return this.fetchAsync<IMagicLinkRegistrationSession>(
-            "/api/v3.1/users/register/magiclink/start",
+            "/api/v4/users/register/magiclink/start",
             "post",
             {
                 email_address: username,
