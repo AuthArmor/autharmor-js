@@ -571,66 +571,67 @@ export class AuthArmorClient {
                         registrationId
                     });
 
-                if (
-                    registrationSessionStatus.registration_status_code ===
-                        ApiModels.RegistrationRequestStatusCode.PendingValidation ||
-                    registrationSessionStatus.registration_status_code ===
-                        ApiModels.RegistrationRequestStatusCode.Registered
-                ) {
-                    clearInterval(interval);
+                switch (registrationSessionStatus.registration_status_code) {
+                    case ApiModels.RegistrationRequestStatusCode.PendingValidation: {
+                        clearInterval(interval);
 
-                    const result: IRegistrationSuccessResult = {
-                        registrationId,
-                        succeeded: true,
-                        validationToken
-                    };
+                        const result: IRegistrationSuccessResult = {
+                            registrationId,
+                            succeeded: true,
+                            validationToken
+                        };
 
-                    resolve(result);
-                } else if (
-                    registrationSessionStatus.registration_status_code ===
-                    ApiModels.RegistrationRequestStatusCode.Declined
-                ) {
-                    clearInterval(interval);
+                        resolve(result);
 
-                    const result: IRegistrationFailureResult = {
-                        registrationId,
-                        succeeded: false,
-                        failureReason: "declined"
-                    };
+                        break;
+                    }
 
-                    resolve(result);
+                    case ApiModels.RegistrationRequestStatusCode.Declined: {
+                        clearInterval(interval);
 
-                    return;
-                } else if (
-                    registrationSessionStatus.registration_status_code ===
-                    ApiModels.RegistrationRequestStatusCode.Timeout
-                ) {
-                    clearInterval(interval);
+                        const result: IRegistrationFailureResult = {
+                            registrationId,
+                            succeeded: false,
+                            failureReason: "declined"
+                        };
 
-                    const result: IRegistrationFailureResult = {
-                        registrationId,
-                        succeeded: false,
-                        failureReason: "timedOut"
-                    };
+                        resolve(result);
 
-                    resolve(result);
+                        break;
+                    }
 
-                    return;
-                } else if (
-                    registrationSessionStatus.registration_status_code !==
-                    ApiModels.RegistrationRequestStatusCode.PendingUserAcceptance
-                ) {
-                    clearInterval(interval);
+                    case ApiModels.RegistrationRequestStatusCode.Timeout: {
+                        clearInterval(interval);
 
-                    const result: IRegistrationFailureResult = {
-                        registrationId,
-                        succeeded: false,
-                        failureReason: "unknown"
-                    };
+                        const result: IRegistrationFailureResult = {
+                            registrationId,
+                            succeeded: false,
+                            failureReason: "timedOut"
+                        };
 
-                    resolve(result);
+                        resolve(result);
 
-                    return;
+                        break;
+                    }
+
+                    case ApiModels.RegistrationRequestStatusCode.PendingUserAcceptance:
+                    case ApiModels.RegistrationRequestStatusCode.Registered: {
+                        break;
+                    }
+
+                    default: {
+                        clearInterval(interval);
+
+                        const result: IRegistrationFailureResult = {
+                            registrationId,
+                            succeeded: false,
+                            failureReason: "unknown"
+                        };
+
+                        resolve(result);
+
+                        break;
+                    }
                 }
             }, 1000);
         });
