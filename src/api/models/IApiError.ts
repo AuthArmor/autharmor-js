@@ -1,5 +1,5 @@
 export interface IApiError {
-    errorCode: number;
-    errorMessage: string;
-    trackingGuid: string;
+    error_code: number;
+    error_message: string;
+    tracking_id: string;
 }
