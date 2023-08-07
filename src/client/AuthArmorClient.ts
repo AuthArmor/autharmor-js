@@ -434,6 +434,7 @@ export class AuthArmorClient {
         } catch {
             const result: IRegistrationFailureResult = {
                 registrationId: registrationSession.registration_id,
+                authenticationMethod: "webAuthn",
                 succeeded: false,
                 failureReason: "unknown"
             };
@@ -450,6 +451,7 @@ export class AuthArmorClient {
 
         const result: IRegistrationSuccessResult = {
             registrationId: registrationSession.registration_id,
+            authenticationMethod: "webAuthn",
             succeeded: true,
             validationToken: webAuthnResult.registration_validation_token
         };
@@ -557,6 +559,7 @@ export class AuthArmorClient {
 
                     const result: IRegistrationFailureResult = {
                         registrationId,
+                        authenticationMethod: "authenticator",
                         succeeded: false,
                         failureReason: abortSignal?.aborted ? "aborted" : "timedOut"
                     };
@@ -577,6 +580,7 @@ export class AuthArmorClient {
 
                         const result: IRegistrationSuccessResult = {
                             registrationId,
+                            authenticationMethod: "authenticator",
                             succeeded: true,
                             validationToken
                         };
@@ -591,6 +595,7 @@ export class AuthArmorClient {
 
                         const result: IRegistrationFailureResult = {
                             registrationId,
+                            authenticationMethod: "authenticator",
                             succeeded: false,
                             failureReason: "declined"
                         };
@@ -605,6 +610,7 @@ export class AuthArmorClient {
 
                         const result: IRegistrationFailureResult = {
                             registrationId,
+                            authenticationMethod: "authenticator",
                             succeeded: false,
                             failureReason: "timedOut"
                         };
@@ -624,6 +630,7 @@ export class AuthArmorClient {
 
                         const result: IRegistrationFailureResult = {
                             registrationId,
+                            authenticationMethod: "authenticator",
                             succeeded: false,
                             failureReason: "unknown"
                         };

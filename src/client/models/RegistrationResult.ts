@@ -1,7 +1,10 @@
+import { AuthenticationMethod } from "./AuthenticationMethod";
+
 export type RegistrationResult = IRegistrationSuccessResult | IRegistrationFailureResult;
 
 export interface IRegistrationResult {
     registrationId: string;
+    authenticationMethod: AuthenticationMethod;
     succeeded: boolean;
 }
 
@@ -15,4 +18,4 @@ export interface IRegistrationFailureResult extends IRegistrationResult {
     failureReason: RegistrationFailureReason;
 }
 
-export type RegistrationFailureReason = "timedOut"| "declined" | "aborted" | "unknown";
+export type RegistrationFailureReason = "timedOut" | "declined" | "aborted" | "unknown";
