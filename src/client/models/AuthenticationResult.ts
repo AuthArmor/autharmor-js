@@ -18,4 +18,4 @@ export interface IAuthenticationFailureResult extends IAuthenticationResult {
     failureReason: AuthenticationFailureReason;
 }
 
-export type AuthenticationFailureReason = "timedOut" | "declined" | "aborted" | "unknown";
+export type AuthenticationFailureReason = "timedOut" | "declined" | "unknown";
