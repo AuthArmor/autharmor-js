@@ -475,18 +475,26 @@ export class AuthArmorClient {
         timeoutSeconds: number = 60,
         abortSignal?: AbortSignal
     ): Promise<AuthenticationResult> {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const timesOutAfter = this.systemClock.now().getTime() + timeoutSeconds * 1000;
 
             const interval = setInterval(async () => {
-                if (abortSignal?.aborted || this.systemClock.now().getTime() > timesOutAfter) {
+                if (abortSignal?.aborted) {
+                    clearInterval(interval);
+
+                    reject(abortSignal.reason);
+
+                    return;
+                }
+
+                if (this.systemClock.now().getTime() > timesOutAfter) {
                     clearInterval(interval);
 
                     const result: IAuthenticationFailureResult = {
                         requestId: sessionId,
                         authenticationMethod: "authenticator",
                         succeeded: false,
-                        failureReason: abortSignal?.aborted ? "aborted" : "timedOut"
+                        failureReason: "timedOut"
                     };
 
                     resolve(result);
@@ -550,18 +558,26 @@ export class AuthArmorClient {
         timeoutSeconds: number = 60,
         abortSignal?: AbortSignal
     ): Promise<RegistrationResult> {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const timesOutAfter = this.systemClock.now().getTime() + timeoutSeconds * 1000;
 
             const interval = setInterval(async () => {
-                if (abortSignal?.aborted || this.systemClock.now().getTime() > timesOutAfter) {
+                if (abortSignal?.aborted) {
+                    clearInterval(interval);
+
+                    reject(abortSignal.reason);
+
+                    return;
+                }
+
+                if (this.systemClock.now().getTime() > timesOutAfter) {
                     clearInterval(interval);
 
                     const result: IRegistrationFailureResult = {
                         registrationId,
                         authenticationMethod: "authenticator",
                         succeeded: false,
-                        failureReason: abortSignal?.aborted ? "aborted" : "timedOut"
+                        failureReason: "timedOut"
                     };
 
                     resolve(result);
