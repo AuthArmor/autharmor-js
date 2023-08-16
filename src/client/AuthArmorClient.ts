@@ -34,9 +34,9 @@ import { WebAuthnRequestDeniedError } from "../webAuthn";
  */
 export class AuthArmorClient {
     /**
-     * Indicates whether the client has been initialized for making requests.
+     * The promise returned by `initializeInternal`.
      */
-    private isInitialized: boolean = false;
+    private initializationPromise: Promise<void> | null = null;
 
     /**
      * The ReCaptcha site ID.
@@ -78,15 +78,11 @@ export class AuthArmorClient {
      * the user to control when the initialization occurs.
      */
     public async ensureInitialized(): Promise<void> {
-        if (this.isInitialized) {
-            return;
+        if (this.initializationPromise === null) {
+            this.initializationPromise = this.initializeInternal();
         }
 
-        const remoteSdkConfig = await this.apiClient.getSdkConfigurationAsync();
-
-        this.hCaptchaSiteId = remoteSdkConfig.hcaptcha_site_id;
-
-        this.isInitialized = true;
+        await this.initializationPromise;
     }
 
     /**
@@ -696,5 +692,16 @@ export class AuthArmorClient {
                 return "unknown";
             }
         }
+    }
+
+    /**
+     * Initializes the client for making requests.
+     *
+     * @returns A promise that resolves when the client has been initialized
+     */
+    private async initializeInternal(): Promise<void> {
+        const remoteSdkConfig = await this.apiClient.getSdkConfigurationAsync();
+
+        this.hCaptchaSiteId = remoteSdkConfig.hcaptcha_site_id;
     }
 }
