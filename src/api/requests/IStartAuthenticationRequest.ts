@@ -27,7 +27,7 @@ export interface IStartWebAuthnAuthenticationRequest {
     nonce: string;
 }
 
-export interface IStartMagicLinkAuthenticationRequest extends IStartAuthenticationRequest {
+export interface IStartMagicLinkEmailAuthenticationRequest extends IStartAuthenticationRequest {
     username: string;
     redirectUrl: string;
 }
