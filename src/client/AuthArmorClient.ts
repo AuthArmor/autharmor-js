@@ -1,10 +1,8 @@
 import { AuthArmorApiClient } from "../api/AuthArmorApiClient";
 import * as ApiModels from "../api/models";
+import { ICaptchaConfirmationRequest } from "../api/requests";
 import { BrowserNonceGenerator } from "../infrastructure/BrowserNonceGenerator";
 import { INonceGenerator } from "../infrastructure/INonceGenerator";
-import { GoogleReCaptchaService } from "../infrastructure/GoogleReCaptchaService";
-import { IReCaptchaService } from "../infrastructure/IReCaptchaService";
-import { BlankReCaptchaService } from "../infrastructure/BlankReCaptchaService";
 import { ISystemClock } from "../infrastructure/ISystemClock";
 import { NativeSystemClock } from "../infrastructure/NativeSystemClock";
 import {
@@ -41,9 +39,9 @@ export class AuthArmorClient {
     private isInitialized: boolean = false;
 
     /**
-     * The ReCaptcha service.
+     * The ReCaptcha site ID.
      */
-    private reCaptchaService: IReCaptchaService = null!;
+    private hCaptchaSiteId: string | null = null;
 
     /**
      * The WebAuthn client ID.
@@ -86,18 +84,22 @@ export class AuthArmorClient {
 
         const remoteSdkConfig = await this.apiClient.getSdkConfigurationAsync();
 
-        if (remoteSdkConfig.google_v3_recaptcha_enabled) {
-            const reCaptchaService = new GoogleReCaptchaService(
-                remoteSdkConfig.google_v3_recpatcha_site_id
-            );
-            await reCaptchaService.initializeAsync();
-
-            this.reCaptchaService = reCaptchaService;
-        } else {
-            this.reCaptchaService = new BlankReCaptchaService();
-        }
+        this.hCaptchaSiteId = remoteSdkConfig.hcaptcha_site_id;
 
         this.isInitialized = true;
+    }
+
+    /**
+     * Retrieves the hCaptcha site ID.
+     *
+     * @returns A promise that resolves with the hCaptcha site ID, or null if hCaptcha is disabled.
+     *
+     * @remarks This method only issues a network request if the client is not initialized.
+     */
+    public async getHCaptchaSiteId(): Promise<string | null> {
+        await this.ensureInitialized();
+
+        return this.hCaptchaSiteId;
     }
 
     /**
@@ -130,6 +132,7 @@ export class AuthArmorClient {
      *
      * @param username The username of the user to log in.
      * @param options The options to use for this request.
+     * @param captchaConfirmationRequest The CAPTCHA confirmation.
      * @param abortSignal The abort signal to use for this request.
      *
      * @returns A promise that resolves with a QR code result for the authentication result.
@@ -143,23 +146,25 @@ export class AuthArmorClient {
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 60
         }: Partial<IAuthenticatorUserSpecificAuthenticateOptions> = {},
+        captchaConfirmationRequest?: ICaptchaConfirmationRequest,
         abortSignal?: AbortSignal
     ): Promise<QrCodeResult<AuthenticationResult>> {
         await this.ensureInitialized();
 
-        const reCaptchaToken = await this.reCaptchaService.executeAsync("auth");
         const nonce = this.nonceGenerator.generateNonce();
 
-        const authSession = await this.apiClient.startAuthenticatorUserSpecificAuthenticationAsync({
-            username,
-            sendPushNotification,
-            useVisualVerify,
-            actionName,
-            shortMessage,
-            timeoutSeconds,
-            reCaptchaToken,
-            nonce
-        });
+        const authSession = await this.apiClient.startAuthenticatorUserSpecificAuthenticationAsync(
+            {
+                username,
+                sendPushNotification,
+                useVisualVerify,
+                actionName,
+                shortMessage,
+                timeoutSeconds,
+                nonce
+            },
+            captchaConfirmationRequest
+        );
 
         const result: QrCodeResult<AuthenticationResult> = {
             qrCodeUrl: authSession.qr_code_data,
@@ -195,7 +200,6 @@ export class AuthArmorClient {
     ): Promise<QrCodeResult<AuthenticationResult>> {
         await this.ensureInitialized();
 
-        const reCaptchaToken = await this.reCaptchaService.executeAsync("auth");
         const nonce = this.nonceGenerator.generateNonce();
 
         const authSession = await this.apiClient.startAuthenticatorUsernamelessAuthenticationAsync({
@@ -203,7 +207,6 @@ export class AuthArmorClient {
             actionName,
             shortMessage,
             timeoutSeconds,
-            reCaptchaToken,
             nonce
         });
 
@@ -227,6 +230,7 @@ export class AuthArmorClient {
      *
      * @param emailAddress The email address of the user.
      * @param redirectUrl The URL to redirect to after the user has logged in.
+     * @param captchaConfirmationRequest The CAPTCHA confirmation.
      * @param options The options to use for this request.
      *
      * @returns A promise that resolves when the magic link has been sent.
@@ -243,20 +247,24 @@ export class AuthArmorClient {
             actionName = "Log in",
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 300
-        }: Partial<IMagicLinkEmailAuthenticateOptions> = {}
+        }: Partial<IMagicLinkEmailAuthenticateOptions> = {},
+        captchaConfirmationRequest?: ICaptchaConfirmationRequest
     ): Promise<void> {
         await this.ensureInitialized();
 
         const nonce = this.nonceGenerator.generateNonce();
 
-        await this.apiClient.sendMagicLinkEmailForAuthenticationAsync({
-            username: emailAddress,
-            redirectUrl,
-            actionName,
-            shortMessage,
-            timeoutSeconds,
-            nonce
-        });
+        await this.apiClient.sendMagicLinkEmailForAuthenticationAsync(
+            {
+                username: emailAddress,
+                redirectUrl,
+                actionName,
+                shortMessage,
+                timeoutSeconds,
+                nonce
+            },
+            captchaConfirmationRequest
+        );
     }
 
     /**
@@ -369,6 +377,7 @@ export class AuthArmorClient {
      * @param emailAddress The email address of the user.
      * @param redirectUrl The URL to redirect to after the user has logged in.
      * @param options The options to use for this request.
+     * @param captchaConfirmationRequest The CAPTCHA confirmation.
      *
      * @returns A promise that resolves when the magic link has been sent.
      *
@@ -384,20 +393,24 @@ export class AuthArmorClient {
             actionName = "Register",
             shortMessage = "Registration pending, please authorize",
             timeoutSeconds = 300
-        }: Partial<IMagicLinkEmailRegisterOptions> = {}
+        }: Partial<IMagicLinkEmailRegisterOptions> = {},
+        captchaConfirmationRequest?: ICaptchaConfirmationRequest
     ): Promise<void> {
         await this.ensureInitialized();
 
         const nonce = this.nonceGenerator.generateNonce();
 
-        await this.apiClient.sendMagicLinkEmailForRegistrationAsync({
-            username: emailAddress,
-            redirectUrl,
-            actionName,
-            shortMessage,
-            timeoutSeconds,
-            nonce
-        });
+        await this.apiClient.sendMagicLinkEmailForRegistrationAsync(
+            {
+                username: emailAddress,
+                redirectUrl,
+                actionName,
+                shortMessage,
+                timeoutSeconds,
+                nonce
+            },
+            captchaConfirmationRequest
+        );
     }
 
     /**

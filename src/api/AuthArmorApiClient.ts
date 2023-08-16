@@ -5,7 +5,6 @@ import { ApiError } from "./errors";
 import {
     AuthArmorSdkConfiguration,
     IUserEnrollments,
-    IAuthArmorAuthenticatorEnrollmentStatus,
     IAuthenticationRequestStatus,
     IWebAuthnRegistrationSession,
     IMagicLinkRegistrationSession,
@@ -20,17 +19,17 @@ import {
     IRegistrationRequestStatus
 } from "./models";
 import {
+    ICaptchaConfirmationRequest,
     ICompleteWebAuthnAuthenticationRequest,
     ICompleteWebAuthnRegistrationRequest,
     IGetAuthenticationSessionStatusRequest,
-    IGetAuthenticatorEnrollmentStatusRequest,
     IGetSdkConfigurationRequest,
     IGetUserEnrollmentsRequest,
     IStartAuthenticatorRegistrationRequest,
     IStartAuthenticatorUserSpecificAuthenticationRequest,
     IStartAuthenticatorUsernamelessAuthenticationRequest,
-    IStartMagicLinkAuthenticationRequest,
-    IStartMagicLinkRegistrationRequest,
+    IStartMagicLinkEmailAuthenticationRequest,
+    IStartMagicLinkEmailRegistrationRequest,
     IStartWebAuthnAuthenticationRequest,
     IStartWebAuthnRegistrationRequest
 } from "./requests";
@@ -118,17 +117,20 @@ export class AuthArmorApiClient {
      * Poll the status of the session using the `getAuthenticationSessionStatus` method. The
      * ReCaptcha action is `auth`.
      */
-    public async startAuthenticatorUserSpecificAuthenticationAsync({
-        username,
-        sendPushNotification,
-        useVisualVerify,
-        actionName,
-        shortMessage,
-        originLocation,
-        timeoutSeconds,
-        reCaptchaToken,
-        nonce
-    }: IStartAuthenticatorUserSpecificAuthenticationRequest): Promise<IAuthenticatorAuthenticationSession> {
+    public async startAuthenticatorUserSpecificAuthenticationAsync(
+        {
+            username,
+            sendPushNotification,
+            useVisualVerify,
+            actionName,
+            shortMessage,
+            originLocation,
+            timeoutSeconds,
+            reCaptchaToken,
+            nonce
+        }: IStartAuthenticatorUserSpecificAuthenticationRequest,
+        captchaConfirmation?: ICaptchaConfirmationRequest
+    ): Promise<IAuthenticatorAuthenticationSession> {
         return await this.fetchAsync<IAuthenticatorAuthenticationSession>(
             "/api/v4/auth/request/authenticator/start",
             "post",
@@ -142,7 +144,8 @@ export class AuthArmorApiClient {
                 timeout_in_seconds: timeoutSeconds,
                 google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
-            }
+            },
+            this.getCaptchaConfirmationHeaders(captchaConfirmation)
         );
     }
 
@@ -235,16 +238,19 @@ export class AuthArmorApiClient {
      * The user will be redirected to the URL specified in the `redirectUrl` parameter, which
      * must be registered via the AuthArmor dashboard. The resulting session will be authenticated.
      */
-    public async sendMagicLinkEmailForAuthenticationAsync({
-        username,
-        redirectUrl,
-        actionName,
-        shortMessage,
-        originLocation,
-        timeoutSeconds,
-        reCaptchaToken,
-        nonce
-    }: IStartMagicLinkAuthenticationRequest): Promise<IMagicLinkAuthenticationSession> {
+    public async sendMagicLinkEmailForAuthenticationAsync(
+        {
+            username,
+            redirectUrl,
+            actionName,
+            shortMessage,
+            originLocation,
+            timeoutSeconds,
+            reCaptchaToken,
+            nonce
+        }: IStartMagicLinkEmailAuthenticationRequest,
+        captchaConfirmation?: ICaptchaConfirmationRequest
+    ): Promise<IMagicLinkAuthenticationSession> {
         return await this.fetchAsync<IMagicLinkAuthenticationSession>(
             "/api/v4/auth/request/magiclink/start",
             "post",
@@ -257,7 +263,8 @@ export class AuthArmorApiClient {
                 timeout_in_seconds: timeoutSeconds,
                 google_v3_recaptcha_token: reCaptchaToken ?? "",
                 nonce
-            }
+            },
+            this.getCaptchaConfirmationHeaders(captchaConfirmation)
         );
     }
 
@@ -347,15 +354,18 @@ export class AuthArmorApiClient {
      * The user will be redirected to the URL specified in the `redirectUrl` parameter, which
      * must be registered via the AuthArmor dashboard. The resulting session will be authenticated.
      */
-    public async sendMagicLinkEmailForRegistrationAsync({
-        username,
-        redirectUrl,
-        actionName,
-        shortMessage,
-        originLocation,
-        timeoutSeconds,
-        nonce
-    }: IStartMagicLinkRegistrationRequest): Promise<IMagicLinkRegistrationSession> {
+    public async sendMagicLinkEmailForRegistrationAsync(
+        {
+            username,
+            redirectUrl,
+            actionName,
+            shortMessage,
+            originLocation,
+            timeoutSeconds,
+            nonce
+        }: IStartMagicLinkEmailRegistrationRequest,
+        captchaConfirmation?: ICaptchaConfirmationRequest
+    ): Promise<IMagicLinkRegistrationSession> {
         return this.fetchAsync<IMagicLinkRegistrationSession>(
             "/api/v4/users/register/magiclink/start",
             "post",
@@ -367,8 +377,27 @@ export class AuthArmorApiClient {
                 origin_location_data: originLocation,
                 timeout_in_seconds: timeoutSeconds,
                 nonce
-            }
+            },
+            this.getCaptchaConfirmationHeaders(captchaConfirmation)
         );
+    }
+
+    /**
+     * Creates a list of headers with the specified CAPTCHA verifications.
+     *
+     * @param captchaConfirmation The CAPTCHA confirmation.
+     *
+     * @returns The list of headers confirming the CAPTCHA verification.
+     */
+    private getCaptchaConfirmationHeaders(
+        captchaConfirmation?: ICaptchaConfirmationRequest
+    ): Record<string, string> {
+        if (captchaConfirmation === undefined) return {};
+
+        return {
+            "X-AuthArmor-HCaptchaResponse": captchaConfirmation.hCaptchaResponse,
+            "X-AuthArmor-HCaptchaResponseKey": captchaConfirmation.hCaptchaResponseKey
+        };
     }
 
     /**
@@ -383,7 +412,8 @@ export class AuthArmorApiClient {
     private async fetchAsync<TResponse, TPayload extends {} = {}>(
         relativeUrl: string,
         method: "get" | "post" = "get",
-        payload?: TPayload
+        payload?: TPayload,
+        headers?: Record<string, string>
     ): Promise<TResponse> {
         const url = new URL(`${this.apiBaseUrl}${relativeUrl}`);
         url.searchParams.append("apikey", this.clientSdkApiKey);
@@ -394,17 +424,18 @@ export class AuthArmorApiClient {
 
         const signature = await this.requestSigner.signRequest(finalUrl, encodedPayload ?? "");
 
-        const headers: HeadersInit = {
+        const finalHeaders: HeadersInit = {
+            ...headers,
             "X-AuthArmor-ClientMsgSigv1": signature
         };
 
         if (encodedPayload !== null) {
-            headers["Content-Type"] = "application/json";
+            finalHeaders["Content-Type"] = "application/json";
         }
 
         const options: RequestInit = {
             method,
-            headers,
+            headers: finalHeaders,
             body: encodedPayload
         };
 
