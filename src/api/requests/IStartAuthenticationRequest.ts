@@ -3,7 +3,6 @@ export interface IStartAuthenticationRequest {
     shortMessage: string;
     originLocation?: IOriginLocation;
     timeoutSeconds: number;
-    reCaptchaToken?: string;
     nonce: string;
 }
 
@@ -15,6 +14,7 @@ export interface IStartAuthenticatorUserSpecificAuthenticationRequest
     extends IStartAuthenticatorAuthenticationRequest {
     username: string;
     sendPushNotification: boolean;
+    hCaptchaToken?: string;
 }
 
 export interface IStartAuthenticatorUsernamelessAuthenticationRequest
@@ -30,6 +30,7 @@ export interface IStartWebAuthnAuthenticationRequest {
 export interface IStartMagicLinkEmailAuthenticationRequest extends IStartAuthenticationRequest {
     username: string;
     redirectUrl: string;
+    hCaptchaToken?: string;
 }
 
 export interface IStartRegistrationRequest extends IStartAuthenticationRequest {
@@ -47,6 +48,7 @@ export interface IStartWebAuthnRegistrationRequest {
 
 export interface IStartMagicLinkEmailRegistrationRequest extends IStartRegistrationRequest {
     redirectUrl: string;
+    hCaptchaToken?: string;
 }
 
 interface IOriginLocation {
