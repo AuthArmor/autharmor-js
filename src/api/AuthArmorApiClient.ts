@@ -126,7 +126,6 @@ export class AuthArmorApiClient {
             shortMessage,
             originLocation,
             timeoutSeconds,
-            hCaptchaToken,
             nonce
         }: IStartAuthenticatorUserSpecificAuthenticationRequest,
         captchaConfirmation?: ICaptchaConfirmationRequest
@@ -142,7 +141,7 @@ export class AuthArmorApiClient {
                 action_name: actionName,
                 short_msg: shortMessage,
                 timeout_in_seconds: timeoutSeconds,
-                hCaptcha_token: hCaptchaToken,
+                hCaptcha_token: captchaConfirmation?.hCaptchaResponse,
                 nonce
             }
         );
@@ -243,7 +242,6 @@ export class AuthArmorApiClient {
             shortMessage,
             originLocation,
             timeoutSeconds,
-            hCaptchaToken,
             nonce
         }: IStartMagicLinkEmailAuthenticationRequest,
         captchaConfirmation?: ICaptchaConfirmationRequest
@@ -258,7 +256,7 @@ export class AuthArmorApiClient {
                 action_name: actionName,
                 short_msg: shortMessage,
                 timeout_in_seconds: timeoutSeconds,
-                hCaptcha_token: hCaptchaToken,
+                hCaptcha_token: captchaConfirmation?.hCaptchaResponse,
                 nonce
             }
         );
@@ -358,7 +356,6 @@ export class AuthArmorApiClient {
             shortMessage,
             originLocation,
             timeoutSeconds,
-            hCaptchaToken,
             nonce
         }: IStartMagicLinkEmailRegistrationRequest,
         captchaConfirmation?: ICaptchaConfirmationRequest
@@ -373,7 +370,7 @@ export class AuthArmorApiClient {
                 short_msg: shortMessage,
                 origin_location_data: originLocation,
                 timeout_in_seconds: timeoutSeconds,
-                hCaptcha_token: hCaptchaToken,
+                hCaptcha_token: captchaConfirmation?.hCaptchaResponse,
                 nonce
             }
         );
