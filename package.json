@@ -16,10 +16,10 @@
         }
     },
     "license": "MIT",
-    "homepage": "https://github.com/AuthArmor/autharmor-jsclient-sdk#readme",
+    "homepage": "https://github.com/AuthArmor/autharmor-js#readme",
     "repository": {
         "type": "git",
-        "url": "https://github.com/AuthArmor/autharmor-jsclient-sdk.git"
+        "url": "https://github.com/AuthArmor/autharmor-js.git"
     },
     "files": [
         "./dist"
