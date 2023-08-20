@@ -7,6 +7,7 @@ import { ISystemClock } from "../infrastructure/ISystemClock";
 import { NativeSystemClock } from "../infrastructure/NativeSystemClock";
 import {
     AuthenticationFailureReason,
+    AuthenticationMethod,
     AuthenticationResult,
     AvailableAuthenticationMethods,
     IAuthenticationFailureResult,
@@ -357,7 +358,8 @@ export class AuthArmorClient {
             qrCodeUrl: registrationSession.qr_code_data,
             verificationCode: null,
             resultAsync: async () =>
-                await this.pollForAuthenticatorRegistrationResultAsync(
+                await this.pollForRegistrationResultAsync(
+                    "authenticator",
                     registrationSession.registration_id,
                     username,
                     registrationSession.registration_validation_token,
@@ -565,7 +567,8 @@ export class AuthArmorClient {
      *
      * @returns A promise that resolves with the registration result.
      */
-    protected pollForAuthenticatorRegistrationResultAsync(
+    protected pollForRegistrationResultAsync(
+        authenticationMethod: AuthenticationMethod,
         registrationId: string,
         username: string,
         validationToken: string,
@@ -589,7 +592,7 @@ export class AuthArmorClient {
 
                     const result: IRegistrationFailureResult = {
                         registrationId,
-                        authenticationMethod: "authenticator",
+                        authenticationMethod,
                         succeeded: false,
                         failureReason: "timedOut"
                     };
@@ -610,7 +613,7 @@ export class AuthArmorClient {
 
                         const result: IRegistrationSuccessResult = {
                             registrationId,
-                            authenticationMethod: "authenticator",
+                            authenticationMethod,
                             succeeded: true,
                             username,
                             validationToken
