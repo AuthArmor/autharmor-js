@@ -10,6 +10,7 @@ export interface IRegistrationResult {
 
 export interface IRegistrationSuccessResult extends IRegistrationResult {
     succeeded: true;
+    username: string;
     validationToken: string;
 }
 

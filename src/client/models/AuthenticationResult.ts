@@ -10,6 +10,7 @@ export interface IAuthenticationResult {
 
 export interface IAuthenticationSuccessResult extends IAuthenticationResult {
     succeeded: true;
+    username: string;
     validationToken: string;
 }
 

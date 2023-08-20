@@ -4,6 +4,7 @@ export interface IAuthenticationRequestStatus {
     auth_request_status_name: string;
     auth_response_code: AuthenticationRequestCode;
     auth_response_message: string | null;
+    username: string | null;
 }
 
 export enum AuthenticationRequestStatusId {
