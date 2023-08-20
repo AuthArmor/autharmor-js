@@ -316,6 +316,7 @@ export class AuthArmorClient {
             succeeded: true,
             requestId: webAuthnResult.auth_request_id,
             authenticationMethod: "webAuthn",
+            username,
             validationToken: webAuthnResult.auth_validation_token
         };
 
@@ -358,6 +359,7 @@ export class AuthArmorClient {
             resultAsync: async () =>
                 await this.pollForAuthenticatorRegistrationResultAsync(
                     registrationSession.registration_id,
+                    username,
                     registrationSession.registration_validation_token,
                     timeoutSeconds,
                     abortSignal
@@ -462,6 +464,7 @@ export class AuthArmorClient {
             registrationId: registrationSession.registration_id,
             authenticationMethod: "webAuthn",
             succeeded: true,
+            username,
             validationToken: webAuthnResult.registration_validation_token
         };
 
@@ -526,6 +529,7 @@ export class AuthArmorClient {
                         requestId: sessionId,
                         authenticationMethod: "authenticator",
                         succeeded: true,
+                        username: status.username!,
                         validationToken
                     };
 
@@ -563,6 +567,7 @@ export class AuthArmorClient {
      */
     protected pollForAuthenticatorRegistrationResultAsync(
         registrationId: string,
+        username: string,
         validationToken: string,
         timeoutSeconds: number = 60,
         abortSignal?: AbortSignal
@@ -607,6 +612,7 @@ export class AuthArmorClient {
                             registrationId,
                             authenticationMethod: "authenticator",
                             succeeded: true,
+                            username,
                             validationToken
                         };
 
