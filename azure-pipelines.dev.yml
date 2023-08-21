@@ -24,9 +24,6 @@ stages:
       - script: npm install --global pnpm@latest-8
         displayName: 'Install pnpm'
 
-      - script: pnpm install
-        displayName: 'Install dependencies'
-
       - task: DownloadSecureFile@1
         name: envFile
         displayName: 'Download development environment file'
@@ -47,11 +44,15 @@ stages:
             fs.writeFileSync('package.json', JSON.stringify(npkg, undefined, 4));
           " | node
         displayName: 'Append development marker to package version'
-      - script: pnpm run build
-        displayName: 'Build package'
 
       - script: mv -f .dev.npmrc .npmrc
         displayName: 'Install development .npmrc file'
+
+      - script: pnpm install
+        displayName: 'Install dependencies'
+
+      - script: pnpm run build
+        displayName: 'Build package'
 
       - task: CopyFiles@2
         displayName: 'Stage artifact files'
