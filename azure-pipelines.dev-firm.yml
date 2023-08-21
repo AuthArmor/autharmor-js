@@ -38,6 +38,10 @@ stages:
       - script: mv -f .dev.npmrc .npmrc
         displayName: 'Install development .npmrc file'
 
+      - task: npmAuthenticate@0
+        inputs:
+          workingFile: .npmrc
+
       - script: pnpm install
         displayName: 'Install dependencies'
 
