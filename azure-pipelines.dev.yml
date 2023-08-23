@@ -91,10 +91,10 @@ stages:
               inputs:
                 workingFile: $(Pipeline.Workspace)/autharmor-sdk/.npmrc
             - script: npm publish --tag latest
-              workingDirectory: $(Pipeline.Workspace)/autharmor-node/
+              workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
               condition: and(succeeded(), eq(variables.isMain, true))
             - script: npm publish
-              workingDirectory: $(Pipeline.Workspace)/autharmor-node/
+              workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
               condition: and(succeeded(), eq(variables.isMain, false))
 
   - stage: deploy_storage
