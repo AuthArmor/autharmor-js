@@ -51,6 +51,10 @@ stages:
       - script: pnpm install
         displayName: 'Install dependencies'
 
+      - task: npmAuthenticate@0
+        inputs:
+          workingFile: .npmrc
+
       - script: pnpm run build
         displayName: 'Build package'
 
