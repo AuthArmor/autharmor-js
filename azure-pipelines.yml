@@ -43,7 +43,7 @@ stages:
           targetFolder: $(Build.ArtifactStagingDirectory)
 
       - publish: $(Build.ArtifactStagingDirectory)
-        artifact: autharmor-sdk
+        artifact: autharmor-js
         displayName: 'Publish package'
 
   - stage: deploy
@@ -57,13 +57,13 @@ stages:
           deploy:
             steps:
             - download: current
-              artifact: autharmor-sdk
+              artifact: autharmor-js
             - task: npmAuthenticate@0
               inputs:
-                workingFile: $(Pipeline.Workspace)/autharmor-sdk/.npmrc
+                workingFile: $(Pipeline.Workspace)/autharmor-js/.npmrc
                 customEndpoint: 'npm publish connection'
             - script: npm publish --access public
-              workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
+              workingDirectory: $(Pipeline.Workspace)/autharmor-js/
 
   - stage: deploy_storage
     displayName: 'Deploy to Azure Storage'
@@ -77,10 +77,10 @@ stages:
           deploy:
             steps:
             - download: current
-              artifact: autharmor-sdk
+              artifact: autharmor-js
             - script: echo "console.log('##vso[task.setvariable variable=PackageVersion;]' + require('./package.json').version)" | node
               displayName: 'Extract package version'
-              workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
+              workingDirectory: $(Pipeline.Workspace)/autharmor-js/
             - task: AzureCLI@2
               inputs:
                 azureSubscription: 'Auth Armor Azure Prod Subscription'
@@ -88,7 +88,7 @@ stages:
                 scriptLocation: inlineScript
                 inlineScript: |
                   az storage blob upload-batch \
-                    --source "$(Pipeline.Workspace)/autharmor-sdk/dist/" \
+                    --source "$(Pipeline.Workspace)/autharmor-js/dist/" \
                     --account-name cdnstroageaarmor \
                     --destination scripts \
                     --destination-path autharmor-js/$(PackageVersion)
