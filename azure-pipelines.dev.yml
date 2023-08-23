@@ -28,7 +28,7 @@ stages:
         name: envFile
         displayName: 'Download development environment file'
         inputs:
-          secureFile: 'autharmor-sdk.environment.development.ts'
+          secureFile: 'autharmor-js.environment.development.ts'
 
       - script: |
           rm $(System.DefaultWorkingDirectory)/src/environment/environment.ts
@@ -69,7 +69,7 @@ stages:
           targetFolder: $(Build.ArtifactStagingDirectory)
 
       - publish: $(Build.ArtifactStagingDirectory)
-        artifact: autharmor-sdk
+        artifact: autharmor-js
         displayName: 'Publish package'
 
   - stage: deploy
@@ -86,15 +86,15 @@ stages:
           deploy:
             steps:
             - download: current
-              artifact: autharmor-sdk
+              artifact: autharmor-js
             - task: npmAuthenticate@0
               inputs:
-                workingFile: $(Pipeline.Workspace)/autharmor-sdk/.npmrc
+                workingFile: $(Pipeline.Workspace)/autharmor-js/.npmrc
             - script: npm publish --tag latest
-              workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
+              workingDirectory: $(Pipeline.Workspace)/autharmor-js/
               condition: and(succeeded(), eq(variables.isMain, true))
             - script: npm publish
-              workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
+              workingDirectory: $(Pipeline.Workspace)/autharmor-js/
               condition: and(succeeded(), eq(variables.isMain, false))
 
   - stage: deploy_storage
@@ -109,10 +109,10 @@ stages:
           deploy:
             steps:
             - download: current
-              artifact: autharmor-sdk
+              artifact: autharmor-js
             - script: echo "console.log('##vso[task.setvariable variable=PackageVersion;]' + require('./package.json').version)" | node
               displayName: 'Extract package version'
-              workingDirectory: $(Pipeline.Workspace)/autharmor-sdk/
+              workingDirectory: $(Pipeline.Workspace)/autharmor-js/
             - task: AzureCLI@2
               inputs:
                 azureSubscription: 'Auth Armor Azure Dev Subscription'
@@ -120,7 +120,7 @@ stages:
                 scriptLocation: inlineScript
                 inlineScript: |
                   az storage blob upload-batch \
-                    --source "$(Pipeline.Workspace)/autharmor-sdk/dist/" \
+                    --source "$(Pipeline.Workspace)/autharmor-js/dist/" \
                     --account-name dvdtstscripts \
                     --destination scripts \
                     --destination-path autharmor-js/$(PackageVersion)
