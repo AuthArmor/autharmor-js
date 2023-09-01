@@ -167,7 +167,8 @@ export class AuthArmorClient {
             qrCodeUrl: authSession.qr_code_data,
             verificationCode: authSession.visual_verify_value || null,
             resultAsync: async () =>
-                await this.pollForAuthenticatorAuthenticationResultAsync(
+                await this.pollForAuthenticationResultAsync(
+                    "authenticator",
                     authSession.auth_request_id,
                     authSession.auth_validation_token,
                     timeoutSeconds,
@@ -211,7 +212,8 @@ export class AuthArmorClient {
             qrCodeUrl: authSession.qr_code_data,
             verificationCode: authSession.visual_verify_value || null,
             resultAsync: async () =>
-                await this.pollForAuthenticatorAuthenticationResultAsync(
+                await this.pollForAuthenticationResultAsync(
+                    "authenticator",
                     authSession.auth_request_id,
                     authSession.auth_validation_token,
                     timeoutSeconds,
@@ -230,12 +232,14 @@ export class AuthArmorClient {
      * @param captchaConfirmationRequest The CAPTCHA confirmation.
      * @param options The options to use for this request.
      *
-     * @returns A promise that resolves when the magic link has been sent.
+     * @returns A promise that resolves with the registration result.
      *
      * @remarks
      * The user will be redirected to the specified URL after they have logged in. The validation
      * token and request ID will be added as query parameters with the names
      * `auth_validation_token` and `auth_request_id` respectively.
+     *
+     * The validation token will not be included in the returned `AuthenticationResult`.
      */
     public async sendAuthenticateMagicLinkEmailAsync(
         emailAddress: string,
@@ -245,13 +249,14 @@ export class AuthArmorClient {
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 300
         }: Partial<IMagicLinkEmailAuthenticateOptions> = {},
-        captchaConfirmationRequest?: ICaptchaConfirmationRequest
-    ): Promise<void> {
+        captchaConfirmationRequest?: ICaptchaConfirmationRequest,
+        abortSignal?: AbortSignal
+    ): Promise<AuthenticationResult> {
         await this.ensureInitialized();
 
         const nonce = this.nonceGenerator.generateNonce();
 
-        await this.apiClient.sendMagicLinkEmailForAuthenticationAsync(
+        const authSession = await this.apiClient.sendMagicLinkEmailForAuthenticationAsync(
             {
                 username: emailAddress,
                 redirectUrl,
@@ -262,6 +267,16 @@ export class AuthArmorClient {
             },
             captchaConfirmationRequest
         );
+
+        const result: AuthenticationResult = await this.pollForAuthenticationResultAsync(
+            "magicLinkEmail",
+            authSession.auth_request_id,
+            "",
+            timeoutSeconds,
+            abortSignal
+        );
+
+        return result;
     }
 
     /**
@@ -379,12 +394,14 @@ export class AuthArmorClient {
      * @param options The options to use for this request.
      * @param captchaConfirmationRequest The CAPTCHA confirmation.
      *
-     * @returns A promise that resolves when the magic link has been sent.
+     * @returns A promise that resolves with the registration result.
      *
      * @remarks
      * The user will be redirected to the specified URL after they have logged in. The URL will
      * contain a query string parameter named `registration_validation_token` that can be used to
      * validate the registration.
+     *
+     * The validation token will not be included in the returned `RegistrationResult`.
      */
     public async sendRegisterMagicLinkEmailAsync(
         emailAddress: string,
@@ -394,13 +411,14 @@ export class AuthArmorClient {
             shortMessage = "Registration pending, please authorize",
             timeoutSeconds = 300
         }: Partial<IMagicLinkEmailRegisterOptions> = {},
-        captchaConfirmationRequest?: ICaptchaConfirmationRequest
-    ): Promise<void> {
+        captchaConfirmationRequest?: ICaptchaConfirmationRequest,
+        abortSignal?: AbortSignal
+    ): Promise<RegistrationResult> {
         await this.ensureInitialized();
 
         const nonce = this.nonceGenerator.generateNonce();
 
-        await this.apiClient.sendMagicLinkEmailForRegistrationAsync(
+        const registrationSession = await this.apiClient.sendMagicLinkEmailForRegistrationAsync(
             {
                 username: emailAddress,
                 redirectUrl,
@@ -411,6 +429,17 @@ export class AuthArmorClient {
             },
             captchaConfirmationRequest
         );
+
+        const result: RegistrationResult = await this.pollForRegistrationResultAsync(
+            "magicLinkEmail",
+            registrationSession.registration_id,
+            emailAddress,
+            "",
+            timeoutSeconds,
+            abortSignal
+        );
+
+        return result;
     }
 
     /**
@@ -483,7 +512,8 @@ export class AuthArmorClient {
      *
      * @returns A promise that resolves with the authentication result.
      */
-    protected pollForAuthenticatorAuthenticationResultAsync(
+    protected pollForAuthenticationResultAsync(
+        authenticationMethod: AuthenticationMethod,
         sessionId: string,
         validationToken: string,
         timeoutSeconds: number = 60,
@@ -506,7 +536,7 @@ export class AuthArmorClient {
 
                     const result: IAuthenticationFailureResult = {
                         requestId: sessionId,
-                        authenticationMethod: "authenticator",
+                        authenticationMethod,
                         succeeded: false,
                         failureReason: "timedOut"
                     };
@@ -520,16 +550,12 @@ export class AuthArmorClient {
                     sessionId
                 });
 
-                if (
-                    status.auth_request_status_id ===
-                        ApiModels.AuthenticationRequestStatusId.PendingValidation &&
-                    status.auth_response_code === ApiModels.AuthenticationRequestCode.Succeeded
-                ) {
+                if (status.auth_response_code === ApiModels.AuthenticationRequestCode.Succeeded) {
                     clearInterval(interval);
 
                     const result: IAuthenticationSuccessResult = {
                         requestId: sessionId,
-                        authenticationMethod: "authenticator",
+                        authenticationMethod,
                         succeeded: true,
                         username: status.username!,
                         validationToken
@@ -547,7 +573,7 @@ export class AuthArmorClient {
 
                     const result: IAuthenticationFailureResult = {
                         requestId: sessionId,
-                        authenticationMethod: "authenticator",
+                        authenticationMethod,
                         succeeded: false,
                         failureReason
                     };
@@ -608,7 +634,8 @@ export class AuthArmorClient {
                     });
 
                 switch (registrationSessionStatus.registration_status_code) {
-                    case ApiModels.RegistrationRequestStatusCode.PendingValidation: {
+                    case ApiModels.RegistrationRequestStatusCode.PendingValidation:
+                    case ApiModels.RegistrationRequestStatusCode.Registered: {
                         clearInterval(interval);
 
                         const result: IRegistrationSuccessResult = {
@@ -654,8 +681,7 @@ export class AuthArmorClient {
                         break;
                     }
 
-                    case ApiModels.RegistrationRequestStatusCode.PendingUserAcceptance:
-                    case ApiModels.RegistrationRequestStatusCode.Registered: {
+                    case ApiModels.RegistrationRequestStatusCode.PendingUserAcceptance: {
                         break;
                     }
 
