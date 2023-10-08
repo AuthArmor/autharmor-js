@@ -397,9 +397,9 @@ export class AuthArmorClient {
      * @returns A promise that resolves with the registration result.
      *
      * @remarks
-     * The user will be redirected to the specified URL after they have logged in. The URL will
-     * contain a query string parameter named `registration_validation_token` that can be used to
-     * validate the registration.
+     * The user will be redirected to the specified URL after they have registered. The validation
+     * token and registration ID will be added as query parameters with the names
+     * `registration_validation_token` and `registration_id` respectively.
      *
      * The validation token will not be included in the returned `RegistrationResult`.
      */
@@ -681,7 +681,8 @@ export class AuthArmorClient {
                         break;
                     }
 
-                    case ApiModels.RegistrationRequestStatusCode.PendingUserAcceptance: {
+                    case ApiModels.RegistrationRequestStatusCode.PendingUserAcceptance:
+                    case ApiModels.RegistrationRequestStatusCode.AcceptedPendingDeviceEnrollment: {
                         break;
                     }
 
