@@ -24,7 +24,7 @@ yarn add @autharmor/autharmor-js
 In projects without an NPM package manager, we also serve an IIFE bundle from our CDN which you can load as follows.
 
 ```html
-<script src="https://cdn.autharmor.com/scripts/autharmor-js/4.0.0-alpha.9/global/autharmor-js.js"></script>
+<script src="https://cdn.autharmor.com/scripts/autharmor-js/4.0.0-rc.1/global/autharmor-js.js"></script>
 ```
 
 This module's exports will then be available in the `authArmor` global variable. Instead of `import` statements, you can use destructuring:
