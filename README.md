@@ -49,6 +49,7 @@ const authArmorConfig: AuthArmorClientConfiguration = {
 ```
 
 > If you're using TypeScript, you must import `AuthArmorClientConfiguration` at the top of your file:
+>
 > ```ts
 > import { AuthArmorClientConfiguration } from "@autharmor/sdk";
 > ```
@@ -64,6 +65,7 @@ const authArmorClient = new AuthArmorClient(authArmorConfig);
 ```
 
 > You must import `AuthArmorClient` at the top of your file:
+>
 > ```ts
 > import { AuthArmorClient } from "@autharmor/sdk";
 > ```
@@ -124,6 +126,7 @@ if (authenticationResult.succeeded) {
 ```
 
 You can provide a list of options as the second parameter of `authenticateWithAuthenticatorAsync` like so:
+
 ```ts
 await authArmorClient.authenticateWithAuthenticatorAsync("username", {
     sendPushNotification: false,
@@ -139,11 +142,11 @@ Other authentication and registration methods also follow a similar pattern. Ref
 As a summary, these are the methods available for you:
 
 | **Method**                                       | **Options Object**                                                                              | **Return Type**                           | **Description**                                                                |
-|--------------------------------------------------|-------------------------------------------------------------------------------------------------|-------------------------------------------|--------------------------------------------------------------------------------|
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------ |
 | `authenticateWithAuthenticatorAsync`             | [`IAuthenticatorUserSpecificAuthenticateOptions`](./src/client/options/IAuthenticateOptions.ts) | `Promise<QrResult<AuthenticationResult>>` | Authenticates a user using their authenticator app.                            |
 | `authenticateWithAuthenticatorUsernamelessAsync` | [`IAuthenticatorUsernamelessAuthenticateOptions`](./src/client/options/IAuthenticateOptions.ts) | `Promise<QrResult<AuthenticationResult>>` | Authenticates a user using an authenticator QR code that is not user-specific. |
-| `authenticateWithWebAuthnAsync`                  | None                                                                                            | `Promise<AuthenticationResult>`           | Authenticates a user using WebAuthn.                                           |
+| `authenticateWithPasskeyAsync`                   | None                                                                                            | `Promise<AuthenticationResult>`           | Authenticates a user using a passkey.                                          |
 | `sendAuthenticateMagicLinkEmailAsync`            | [`IMagicLinkEmailAuthenticateOptions`](./src/client/options/IAuthenticateOptions.ts)            | `Promise<void>`                           | Sends an authentication magic link to the user's email address.                |
 | `registerWithAuthenticatorAsync`                 | [`IAuthenticatorRegisterOptions`](./src/client/options/IRegisterOptions.ts)                     | `Promise<QrResult<RegistrationResult>>`   | Registers a user using an authenticator QR code.                               |
-| `registerWithWebAuthnAsync`                      | [`IWebAuthnRegisterOptions`](./src/client/options/IRegisterOptions.ts)                          | `Promise<RegistrationResult>`             | Registers a user using WebAuthn.                                               |
+| `registerWithPasskeyAsync`                       | [`IPasskeyRegisterOptions`](./src/client/options/IRegisterOptions.ts)                           | `Promise<RegistrationResult>`             | Registers a user using a passkey.                                              |
 | `sendRegisterMagicLinkEmailAsync`                | [`IMagicLinkEmailRegisterOptions`](./src/client/options/IRegisterOptions.ts)                    | `Promise<void>`                           | Sends a registration magic link to the user's email address.                   |
