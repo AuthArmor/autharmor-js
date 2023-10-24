@@ -1,5 +1,5 @@
 export interface IRegistrationSession {
-    registration_id: string
+    registration_id: string;
 }
 
 export interface IAuthenticatorRegistrationSession extends IRegistrationSession {

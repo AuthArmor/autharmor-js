@@ -12,6 +12,6 @@ export interface IMagicLinkEmailRegisterOptions extends IRegisterOptions {
     shortMessage: string;
 }
 
-export interface IWebAuthnRegisterOptions {
+export interface IPasskeyRegisterOptions {
     attachmentType: "Any" | "Platform" | "CrossPlatform";
 }

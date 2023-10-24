@@ -1,4 +1,4 @@
-import { IWebAuthnAuthentication } from "./IWebAuthnAuthentication";
-import { IWebAuthnRegistration } from "./IWebAuthnRegistration";
+import { IPasskeyAuthentication } from "./IPasskeyAuthentication";
+import { IPasskeyRegistration } from "./IPasskeyRegistration";
 
-export type { IWebAuthnAuthentication, IWebAuthnRegistration };
+export type { IPasskeyAuthentication, IPasskeyRegistration };

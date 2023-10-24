@@ -19,14 +19,14 @@ import {
 } from "./models";
 import { AuthArmorClientConfiguration } from "./config";
 import { WebAuthnService } from "../webAuthn/WebAuthnService";
-import { IWebAuthnAuthentication, IWebAuthnRegistration } from "../webAuthn/models";
+import { IPasskeyAuthentication, IPasskeyRegistration } from "../webAuthn/models";
 import {
     IAuthenticatorRegisterOptions,
     IAuthenticatorUserSpecificAuthenticateOptions,
     IAuthenticatorUsernamelessAuthenticateOptions,
     IMagicLinkEmailAuthenticateOptions,
     IMagicLinkEmailRegisterOptions,
-    IWebAuthnRegisterOptions
+    IPasskeyRegisterOptions
 } from "./options";
 import { WebAuthnRequestDeniedError } from "../webAuthn";
 
@@ -118,7 +118,7 @@ export class AuthArmorClient {
         const result: AvailableAuthenticationMethods = {
             authenticator: authMethods.includes(ApiModels.AuthMethod.Authenticator),
             magicLinkEmail: authMethods.includes(ApiModels.AuthMethod.MagicLinkEmail),
-            webAuthn: authMethods.includes(ApiModels.AuthMethod.WebAuthn)
+            passkey: authMethods.includes(ApiModels.AuthMethod.Passkey)
         };
 
         return result;
@@ -280,15 +280,17 @@ export class AuthArmorClient {
     }
 
     /**
-     * Authenticates a user using WebAuthn.
+     * Authenticates a user using a passkey.
      *
      * @param username The username of the user.
      *
      * @returns A promise that resolves with the authentication result.
      */
-    public async authenticateWithWebAuthnAsync(username: string): Promise<AuthenticationResult> {
+    public async authenticateWithPasskeyAsync(username: string): Promise<AuthenticationResult> {
         if (this.webAuthnClientId === null) {
-            throw new Error("This AuthArmorClient was not instantiated with WebAuthn support");
+            throw new Error(
+                "This AuthArmorClient was not instantiated with passkey support because a WebAuthn client ID was not provided."
+            );
         }
 
         await this.ensureInitialized();
@@ -302,7 +304,7 @@ export class AuthArmorClient {
             nonce
         });
 
-        let authentication: IWebAuthnAuthentication;
+        let authentication: IPasskeyAuthentication;
 
         try {
             authentication = await this.webAuthnService.authenticateAsync(authSession);
@@ -310,7 +312,7 @@ export class AuthArmorClient {
             if (error instanceof WebAuthnRequestDeniedError) {
                 const result: IAuthenticationFailureResult = {
                     requestId: authSession.auth_request_id,
-                    authenticationMethod: "webAuthn",
+                    authenticationMethod: "passkey",
                     succeeded: false,
                     failureReason: "declined"
                 };
@@ -331,7 +333,7 @@ export class AuthArmorClient {
         const result: IAuthenticationSuccessResult = {
             succeeded: true,
             requestId: webAuthnResult.auth_request_id,
-            authenticationMethod: "webAuthn",
+            authenticationMethod: "passkey",
             username,
             validationToken: webAuthnResult.auth_validation_token
         };
@@ -443,19 +445,21 @@ export class AuthArmorClient {
     }
 
     /**
-     * Registers a user using WebAuthn.
+     * Registers a user using a passkey.
      *
      * @param username The username of the user.
      * @param options The options to use for this request.
      *
      * @returns A promise that resolves with the registration result.
      */
-    public async registerWithWebAuthnAsync(
+    public async registerWithPasskeyAsync(
         username: string,
-        { attachmentType = "Any" }: Partial<IWebAuthnRegisterOptions> = {}
+        { attachmentType = "Any" }: Partial<IPasskeyRegisterOptions> = {}
     ): Promise<RegistrationResult> {
         if (this.webAuthnClientId === null) {
-            throw new Error("This AuthArmorClient was not instantiated with WebAuthn support");
+            throw new Error(
+                "This AuthArmorClient was not instantiated with passkey support because a WebAuthn client ID was not provided."
+            );
         }
 
         await this.ensureInitialized();
@@ -469,14 +473,14 @@ export class AuthArmorClient {
             nonce
         });
 
-        let registration: IWebAuthnRegistration;
+        let registration: IPasskeyRegistration;
 
         try {
             registration = await this.webAuthnService.registerAsync(registrationSession);
         } catch {
             const result: IRegistrationFailureResult = {
                 registrationId: registrationSession.registration_id,
-                authenticationMethod: "webAuthn",
+                authenticationMethod: "passkey",
                 succeeded: false,
                 failureReason: "unknown"
             };
@@ -493,7 +497,7 @@ export class AuthArmorClient {
 
         const result: IRegistrationSuccessResult = {
             registrationId: registrationSession.registration_id,
-            authenticationMethod: "webAuthn",
+            authenticationMethod: "passkey",
             succeeded: true,
             username,
             validationToken: webAuthnResult.registration_validation_token

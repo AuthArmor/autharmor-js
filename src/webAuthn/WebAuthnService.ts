@@ -1,7 +1,7 @@
 import { BrowserBase64Coder } from "../infrastructure/BrowserBase64Coder";
 import { IBase64Coder } from "../infrastructure/IBase64Coder";
 import { WebAuthnRequestDeniedError } from "./errors";
-import { IWebAuthnAuthentication, IWebAuthnRegistration } from "./models";
+import { IPasskeyAuthentication, IPasskeyRegistration } from "./models";
 import { IWebAuthnAuthenticateRequest, IWebAuthnRegisterRequest } from "./requests";
 import { IPublicKeyCredentialRequest } from "./requests/IPublicKeyCredentialRequest";
 
@@ -13,7 +13,7 @@ export class WebAuthnService {
 
     public async authenticateAsync(
         authenticateRequest: IWebAuthnAuthenticateRequest
-    ): Promise<IWebAuthnAuthentication> {
+    ): Promise<IPasskeyAuthentication> {
         const jsonOptions = JSON.parse(
             authenticateRequest.fido2_json_options
         ) as IPublicKeyCredentialRequest;
@@ -37,7 +37,7 @@ export class WebAuthnService {
             throw new WebAuthnRequestDeniedError();
         }
 
-        const result: IWebAuthnAuthentication = {
+        const result: IPasskeyAuthentication = {
             authenticator_response_data: this.getAuthenticatorResponseData(attestation),
             auth_request_id: authenticateRequest.auth_request_id,
             aa_sig: authenticateRequest.aa_guid,
@@ -49,7 +49,7 @@ export class WebAuthnService {
 
     public async registerAsync(
         registrationRequest: IWebAuthnRegisterRequest
-    ): Promise<IWebAuthnRegistration> {
+    ): Promise<IPasskeyRegistration> {
         const jsonOptions = JSON.parse(
             registrationRequest.fido2_json_options
         ) as IPublicKeyCredentialRequest;
@@ -73,7 +73,7 @@ export class WebAuthnService {
             throw new WebAuthnRequestDeniedError();
         }
 
-        const result: IWebAuthnRegistration = {
+        const result: IPasskeyRegistration = {
             authenticator_response_data: this.getAuthenticatorResponseData(attestation),
             registration_id: registrationRequest.registration_id,
             aa_sig: registrationRequest.aa_sig,
