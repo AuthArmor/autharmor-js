@@ -40,6 +40,8 @@ export interface IStartAuthenticatorRegistrationRequest extends IStartRegistrati
 export interface IStartWebAuthnRegistrationRequest {
     username: string;
     attachmentType: WebAuthnAttachmentType;
+    residentKeyRequirementType: WebAuthnResidentKeyRequirementType;
+    userVerificationRequirementType: WebAuthnUserVerificationRequirementType;
     webAuthnClientId: string;
     nonce: string;
 }
@@ -54,3 +56,5 @@ interface IOriginLocation {
 }
 
 type WebAuthnAttachmentType = "Any" | "Platform" | "CrossPlatform";
+type WebAuthnResidentKeyRequirementType = "required" | "preferred" | "discouraged";
+type WebAuthnUserVerificationRequirementType = "required" | "preferred" | "discouraged";

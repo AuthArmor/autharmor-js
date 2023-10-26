@@ -1,6 +1,6 @@
 import { AuthArmorApiClient } from "../api/AuthArmorApiClient";
 import * as ApiModels from "../api/models";
-import { ICaptchaConfirmationRequest } from "../api/requests";
+import { ICaptchaConfirmationRequest, IStartWebAuthnRegistrationRequest } from "../api/requests";
 import { BrowserNonceGenerator } from "../infrastructure/BrowserNonceGenerator";
 import { INonceGenerator } from "../infrastructure/INonceGenerator";
 import { ISystemClock } from "../infrastructure/ISystemClock";
@@ -454,7 +454,11 @@ export class AuthArmorClient {
      */
     public async registerWithPasskeyAsync(
         username: string,
-        { attachmentType = "Any" }: Partial<IPasskeyRegisterOptions> = {}
+        {
+            attachmentType = "any",
+            residentKeyRequirementType = "required",
+            userVerificationRequirementType = "required"
+        }: Partial<IPasskeyRegisterOptions> = {}
     ): Promise<RegistrationResult> {
         if (this.webAuthnClientId === null) {
             throw new Error(
@@ -466,9 +470,17 @@ export class AuthArmorClient {
 
         const nonce = this.nonceGenerator.generateNonce();
 
+        const attachmentTypeMap: Record<IPasskeyRegisterOptions["attachmentType"], IStartWebAuthnRegistrationRequest["attachmentType"]> = {
+            any: "Any",
+            crossPlatform: "CrossPlatform",
+            platform: "Platform"
+        };
+
         const registrationSession = await this.apiClient.startWebAuthnRegistrationAsync({
             username,
-            attachmentType,
+            attachmentType: attachmentTypeMap[attachmentType],
+            residentKeyRequirementType,
+            userVerificationRequirementType,
             webAuthnClientId: this.webAuthnClientId,
             nonce
         });
