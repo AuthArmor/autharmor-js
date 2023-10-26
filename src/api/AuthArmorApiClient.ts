@@ -301,6 +301,8 @@ export class AuthArmorApiClient {
     public async startWebAuthnRegistrationAsync({
         username,
         attachmentType,
+        residentKeyRequirementType,
+        userVerificationRequirementType,
         webAuthnClientId,
         nonce
     }: IStartWebAuthnRegistrationRequest): Promise<IWebAuthnRegistrationSession> {
@@ -310,6 +312,8 @@ export class AuthArmorApiClient {
             {
                 username,
                 attachment_type: attachmentType,
+                resident_key_requirement_type: residentKeyRequirementType,
+                userVerificationRequirementType: userVerificationRequirementType,
                 webauthn_client_id: webAuthnClientId,
                 nonce
             }

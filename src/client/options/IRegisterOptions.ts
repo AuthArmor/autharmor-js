@@ -13,5 +13,7 @@ export interface IMagicLinkEmailRegisterOptions extends IRegisterOptions {
 }
 
 export interface IPasskeyRegisterOptions {
-    attachmentType: "Any" | "Platform" | "CrossPlatform";
+    attachmentType: "any" | "platform" | "crossPlatform";
+    residentKeyRequirementType: "required" | "preferred" | "discouraged";
+    userVerificationRequirementType: "required" | "preferred" | "discouraged";
 }
