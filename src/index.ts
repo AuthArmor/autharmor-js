@@ -127,8 +127,8 @@ interface DebugSettings {
 interface SDKConfig {
   clientSdkApiKey: string;
   webauthnClientId: string;
-  registerRedirectUrl: string;
-  authenticationRedirectUrl: string;
+  registerRedirectUrl?: string;
+  authenticationRedirectUrl?: string;
   getNonce?: () => string;
   debug?: DebugSettings;
 }
@@ -207,8 +207,8 @@ class SDK {
   constructor({
     clientSdkApiKey = "",
     webauthnClientId = "",
-    registerRedirectUrl = "",
-    authenticationRedirectUrl = "",
+    registerRedirectUrl,
+    authenticationRedirectUrl,
     getNonce,
     debug = { url: "https://auth.autharmor.dev" }
   }: SDKConfig) {
@@ -470,7 +470,10 @@ class SDK {
 
     if (type === "success") {
       if (loadingText) {
-        loadingText.innerHTML = `<b>Authenticated!</b><br><span>Please wait...</span>`;
+        loadingText.insertAdjacentHTML(
+          "beforeend",
+          `<b>Authenticated!</b><br><span>Please wait...</span>`
+        );
       }
 
       return;
@@ -583,7 +586,9 @@ class SDK {
   };
 
   private init = () => {
-    document.body.innerHTML += `
+    document.body?.insertAdjacentHTML(
+      "beforeend",
+      `
       <div class="${styles.popupOverlay} ${styles.hidden}">
         <div class="${styles.popupOverlayContent}">
           <div class="${styles.popupContentContainer}">
@@ -604,8 +609,8 @@ class SDK {
               class="${styles.autharmorIcon}"
             />
             <div class="${styles.qrCodeImgContainer} ${styles.hidden} ${
-      isMobile() ? styles.qrCodeMobile : ""
-    }">
+        isMobile() ? styles.qrCodeMobile : ""
+      }">
               ${
                 isMobile()
                   ? `
@@ -656,7 +661,8 @@ class SDK {
           }
         </div>
       </div>
-    `;
+    `
+    );
 
     const showPopupQrBtn = $(`.${styles.showPopupQrcodeBtn}`);
     const hidePopupQrBtn = $(`.${styles.hidePopupQrcodeBtn}`);
@@ -918,7 +924,7 @@ class SDK {
     const [, keyPayloadBase64] = this.publicKey?.split(".") ?? [];
     const keyPayload = JSON.parse(atob(keyPayloadBase64));
     const requestPath = urlParser.pathname.replace(/\/$/gi, "");
-    const host = location.hostname;
+    const host = window.location.hostname;
     const signature = [keyPayload.key, timestamp, requestPath, host].join("|");
     const { hashBuffer: signatureBuffer } = await this.sha256(signature);
 
@@ -1228,7 +1234,7 @@ class SDK {
           ? "Please click the button above to start registration"
           : "Please scan the QR Code with your phone"
       );
-      this.showPopupQRCode(false);
+      this.showPopupQRCode(true);
 
       this.getEnrollmentStatus({
         id: body.user_id,
@@ -1908,7 +1914,9 @@ class SDK {
         parsedOptions.methods?.includes("authenticator")) &&
       parsedOptions.usernameless !== false;
 
-    element.innerHTML = `
+    element.insertAdjacentHTML(
+      "beforeend",
+      `
       <div class="${styles.container}">
         <div class="${styles.content}">
           <div class="${styles.loadingOverlay}">
@@ -1930,18 +1938,18 @@ class SDK {
             <p class="${styles.errorDesc}">
               An error has occurred while communicating with the AuthArmor API,
               please make sure you've added the following domain to the allowed
-              domains list: "${location.host}"
+              domains list: "${window.location.host}"
             </p>
           </div>
           <div class="${styles.tabs}">
             <div class="${styles.tab} ${
-      parsedOptions.defaultTab === "login" ? styles.activeTab : ""
-    }" data-tab="login">
+        parsedOptions.defaultTab === "login" ? styles.activeTab : ""
+      }" data-tab="login">
               ${this.i18n?.auth?.tabName}
             </div>
             <div class="${styles.tab} ${
-      parsedOptions.defaultTab === "register" ? styles.activeTab : ""
-    }" data-tab="register">${this.i18n?.register?.tabName}</div>
+        parsedOptions.defaultTab === "register" ? styles.activeTab : ""
+      }" data-tab="register">${this.i18n?.register?.tabName}</div>
           </div>
           <form
             id="login"
@@ -2010,8 +2018,8 @@ class SDK {
             </div>
             <div
               class="${styles.btn} ${
-      parsedOptions.methods?.includes("webauthn") ? "" : styles.disabled
-    }"
+        parsedOptions.methods?.includes("webauthn") ? "" : styles.disabled
+      }"
               data-btn="login">
               <p>${this.i18n?.auth?.action}</p>
             </div>
@@ -2020,10 +2028,10 @@ class SDK {
             id="register"
             class="${styles.tabContent}" 
             style="${!authenticatorEnabled ? "min-height: 164px;" : ""} ${
-      parsedOptions.defaultTab === "register"
-        ? "display: block;"
-        : "display: none;"
-    }">
+        parsedOptions.defaultTab === "register"
+          ? "display: block;"
+          : "display: none;"
+      }">
             <div class="${styles.infoContainer}">
               <p class="${styles.headerText}">
                 ${this.i18n?.register?.usernameLabel}
@@ -2045,9 +2053,12 @@ class SDK {
           </form>
         </div>
       </div>
-    `;
+    `
+    );
 
-    document.body.innerHTML += `
+    element.insertAdjacentHTML(
+      "beforeend",
+      `
       <div class="${styles.modal} ${styles.hidden}">
         <div class="${styles.modalBackground}"></div>
         <div class="${styles.modalContainer}">
@@ -2105,7 +2116,8 @@ class SDK {
           <p class="${styles.another}">Choose another method</p>
         </div>
       </div>
-    `;
+    `
+    );
 
     this.textIndex += 1;
 
