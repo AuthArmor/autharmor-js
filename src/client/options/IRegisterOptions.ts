@@ -8,6 +8,7 @@ export interface IAuthenticatorRegisterOptions extends IRegisterOptions {
 }
 
 export interface IMagicLinkEmailRegisterOptions extends IRegisterOptions {
+    context: Record<string, string>;
     actionName: string;
     shortMessage: string;
 }

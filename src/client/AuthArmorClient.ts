@@ -245,6 +245,7 @@ export class AuthArmorClient {
         emailAddress: string,
         redirectUrl: string,
         {
+            context = {},
             actionName = "Log in",
             shortMessage = "Log in pending, please authorize",
             timeoutSeconds = 300
@@ -260,6 +261,7 @@ export class AuthArmorClient {
             {
                 username: emailAddress,
                 redirectUrl,
+                context,
                 actionName,
                 shortMessage,
                 timeoutSeconds,
@@ -409,6 +411,7 @@ export class AuthArmorClient {
         emailAddress: string,
         redirectUrl: string,
         {
+            context = {},
             actionName = "Register",
             shortMessage = "Registration pending, please authorize",
             timeoutSeconds = 300
@@ -424,6 +427,7 @@ export class AuthArmorClient {
             {
                 username: emailAddress,
                 redirectUrl,
+                context,
                 actionName,
                 shortMessage,
                 timeoutSeconds,

@@ -238,6 +238,7 @@ export class AuthArmorApiClient {
         {
             username,
             redirectUrl,
+            context,
             actionName,
             shortMessage,
             originLocation,
@@ -252,6 +253,7 @@ export class AuthArmorApiClient {
             {
                 username,
                 authentication_redirect_url: redirectUrl,
+                context_data: context,
                 origin_location_data: originLocation,
                 action_name: actionName,
                 short_msg: shortMessage,
@@ -356,6 +358,7 @@ export class AuthArmorApiClient {
         {
             username,
             redirectUrl,
+            context,
             actionName,
             shortMessage,
             originLocation,
@@ -370,6 +373,7 @@ export class AuthArmorApiClient {
             {
                 email_address: username,
                 registration_redirect_url: redirectUrl,
+                context_data: context,
                 action_name: actionName,
                 short_msg: shortMessage,
                 origin_location_data: originLocation,

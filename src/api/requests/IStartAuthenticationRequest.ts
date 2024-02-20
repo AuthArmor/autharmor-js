@@ -29,6 +29,7 @@ export interface IStartWebAuthnAuthenticationRequest {
 export interface IStartMagicLinkEmailAuthenticationRequest extends IStartAuthenticationRequest {
     username: string;
     redirectUrl: string;
+    context: Record<string, string>;
 }
 
 export interface IStartRegistrationRequest extends IStartAuthenticationRequest {
@@ -48,6 +49,7 @@ export interface IStartWebAuthnRegistrationRequest {
 
 export interface IStartMagicLinkEmailRegistrationRequest extends IStartRegistrationRequest {
     redirectUrl: string;
+    context: Record<string, string>;
 }
 
 interface IOriginLocation {
