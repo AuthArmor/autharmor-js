@@ -19,4 +19,5 @@ export interface IAuthenticatorUserSpecificAuthenticateOptions
 export interface IMagicLinkEmailAuthenticateOptions extends IAuthenticateOptions {
     actionName: string;
     shortMessage: string;
+    context: Record<string, string>;
 }
